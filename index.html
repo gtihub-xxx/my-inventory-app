@@ -486,7 +486,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.6 - 2025.05.31 - 編集機能修正版
+                v3.0.7 - 2025.05.31 - ドロップダウン選択機能追加版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -526,11 +526,37 @@
                 </div>
                 <div>
                     <label>保管場所</label>
-                    <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
+                    <select id="itemLocation" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="キッチン">キッチン</option>
+                        <option value="洗面所">洗面所</option>
+                        <option value="リビング">リビング</option>
+                        <option value="寝室">寝室</option>
+                        <option value="洗濯機横">洗濯機横</option>
+                        <option value="玄関">玄関</option>
+                        <option value="押入れ">押入れ</option>
+                        <option value="冷蔵庫">冷蔵庫</option>
+                        <option value="冷凍庫">冷凍庫</option>
+                        <option value="パントリー">パントリー</option>
+                        <option value="その他">その他</option>
+                    </select>
+                    <input type="text" id="itemLocationCustom" class="form-control hidden" placeholder="保管場所を入力" style="margin-top: 8px;">
                 </div>
                 <div>
                     <label>直近購買先</label>
-                    <input type="text" id="itemSupplier" class="form-control" placeholder="直近購買先（例: Amazon、スーパー、ドラッグストア）">
+                    <select id="itemSupplier" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="Amazon">Amazon</option>
+                        <option value="楽天">楽天</option>
+                        <option value="スーパー">スーパー</option>
+                        <option value="ドラッグストア">ドラッグストア</option>
+                        <option value="コンビニ">コンビニ</option>
+                        <option value="ホームセンター">ホームセンター</option>
+                        <option value="百貨店">百貨店</option>
+                        <option value="ネットショップ">ネットショップ</option>
+                        <option value="その他">その他</option>
+                    </select>
+                    <input type="text" id="itemSupplierCustom" class="form-control hidden" placeholder="購買先を入力" style="margin-top: 8px;">
                 </div>
                 <div style="grid-column: 1 / -1;">
                     <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
@@ -563,7 +589,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.6</div>
+                <div>バージョン: v3.0.7</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -767,7 +793,57 @@
                     panel.classList.add('hidden');
                 }
             });
+            
+            // ドロップダウン変更監視
+            document.getElementById('itemLocation').addEventListener('change', function() {
+                toggleCustomInput('itemLocation', 'itemLocationCustom');
+            });
+            
+            document.getElementById('itemSupplier').addEventListener('change', function() {
+                toggleCustomInput('itemSupplier', 'itemSupplierCustom');
+            });
         });
+
+        // カスタム入力の表示/非表示切り替え
+        function toggleCustomInput(selectId, customInputId) {
+            const select = document.getElementById(selectId);
+            const customInput = document.getElementById(customInputId);
+            
+            if (select.value === 'その他') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+                customInput.value = '';
+            }
+        }
+
+        // ドロップダウンの値を設定（既存値に対応）
+        function setDropdownValue(selectId, customInputId, value) {
+            const select = document.getElementById(selectId);
+            const customInput = document.getElementById(customInputId);
+            
+            // 選択肢に値があるかチェック
+            const options = Array.from(select.options);
+            const optionExists = options.some(option => option.value === value);
+            
+            if (optionExists && value !== '') {
+                // 選択肢にある場合はそれを選択
+                select.value = value;
+                customInput.classList.add('hidden');
+                customInput.value = '';
+            } else if (value !== '') {
+                // 選択肢にない場合は「その他」を選択してカスタム入力に設定
+                select.value = 'その他';
+                customInput.classList.remove('hidden');
+                customInput.value = value;
+            } else {
+                // 値が空の場合
+                select.value = '';
+                customInput.classList.add('hidden');
+                customInput.value = '';
+            }
+        }
 
         // データの読み込み（localStorage対応版）
         function loadItems() {
@@ -1063,7 +1139,11 @@
             document.getElementById('itemPrice').value = '0';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
+            document.getElementById('itemLocationCustom').value = '';
+            document.getElementById('itemLocationCustom').classList.add('hidden');
             document.getElementById('itemSupplier').value = '';
+            document.getElementById('itemSupplierCustom').value = '';
+            document.getElementById('itemSupplierCustom').classList.add('hidden');
             document.getElementById('itemBarcode').value = '';
             
             // スタイルリセット
@@ -1110,8 +1190,17 @@
                 const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
                 const price = parseFloat(document.getElementById('itemPrice').value) || 0;
                 const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
-                const location = document.getElementById('itemLocation').value.trim();
-                const supplier = document.getElementById('itemSupplier').value.trim();
+                
+                // 保管場所の取得（ドロップダウンまたはカスタム入力）
+                const locationSelect = document.getElementById('itemLocation').value;
+                const locationCustom = document.getElementById('itemLocationCustom').value.trim();
+                const location = locationSelect === 'その他' ? locationCustom : locationSelect;
+                
+                // 購買先の取得（ドロップダウンまたはカスタム入力）
+                const supplierSelect = document.getElementById('itemSupplier').value;
+                const supplierCustom = document.getElementById('itemSupplierCustom').value.trim();
+                const supplier = supplierSelect === 'その他' ? supplierCustom : supplierSelect;
+                
                 const barcode = document.getElementById('itemBarcode').value.trim();
 
                 console.log('📝 入力値:', { name, quantity, price, minStock, location, supplier, barcode });
@@ -1254,8 +1343,13 @@
                 document.getElementById('itemQuantity').value = item.quantity || 0;
                 document.getElementById('itemPrice').value = item.price || 0;
                 document.getElementById('itemMinStock').value = item.minStock || 1;
-                document.getElementById('itemLocation').value = item.location || '';
-                document.getElementById('itemSupplier').value = item.supplier || '';
+                
+                // 保管場所の設定
+                setDropdownValue('itemLocation', 'itemLocationCustom', item.location || '');
+                
+                // 購買先の設定
+                setDropdownValue('itemSupplier', 'itemSupplierCustom', item.supplier || '');
+                
                 document.getElementById('itemBarcode').value = item.barcode || '';
                 
                 console.log('✅ フィールド設定完了');
@@ -1859,7 +1953,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.6',
+                version: 'v3.0.7',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

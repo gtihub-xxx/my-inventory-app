@@ -263,7 +263,7 @@
         
         .camera-preview {
             width: 100%;
-            height: 200px;
+            height: 250px;
             background: #f3f4f6;
             border-radius: 8px;
             display: flex;
@@ -272,17 +272,82 @@
             margin-bottom: 15px;
             position: relative;
             overflow: hidden;
+            border: 2px solid #d1d5db;
         }
-        
+
         .camera-video {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
+
         .camera-placeholder {
             color: #6b7280;
             text-align: center;
+        }
+
+        .focus-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 80px;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .focus-guide::before {
+            content: 'バーコードをここに合わせる';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .camera-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .control-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tap-to-focus-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            z-index: 15;
         }
         
         .radio-group {
@@ -318,7 +383,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.1.0 - 2025.05.31 - バーコード自動読み取り対応版
+                v2.2.0 - 2025.05.31 - 高精度バーコードスキャン + オートフォーカス対応版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -384,7 +449,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.1.0</div>
+                <div>バージョン: v2.2.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -412,9 +477,16 @@
                 <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
                 <canvas id="scanCanvas" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
-                    <button class="btn btn-primary" onclick="startBarcodeScanner()">📷 バーコードスキャン開始</button>
+                    <button class="btn btn-primary" onclick="startAdvancedBarcodeScanner()">📷 高精度バーコードスキャン</button>
                 </div>
-                <div id="scanStatus" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
+                <div id="focusGuide" class="focus-guide hidden"></div>
+                <div id="tapToFocusHint" class="tap-to-focus-hint hidden">画面をタップしてフォーカス調整</div>
+                <div id="cameraControls" class="camera-controls hidden">
+                    <button class="control-btn" onclick="toggleFlashlight()" title="フラッシュライト">💡</button>
+                    <button class="control-btn" onclick="switchCamera()" title="カメラ切り替え">🔄</button>
+                    <button class="control-btn" onclick="manualFocus()" title="オートフォーカス">🎯</button>
+                </div>
+                <div id="scanStatus" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
                     スキャン中...
                 </div>
             </div>
@@ -459,6 +531,8 @@
         let cameraStream = null;
         let isScanning = false;
         let quaggaInitialized = false;
+        let currentCamera = 'environment'; // 'environment' or 'user'
+        let flashlightEnabled = false;
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -711,82 +785,299 @@
             stopBarcodeScanner();
         }
 
-        function startBarcodeScanner() {
-            // まずシンプルなカメラ起動を試す
+        function startAdvancedBarcodeScanner() {
             document.getElementById('cameraPlaceholder').classList.add('hidden');
             document.getElementById('scanStatus').style.display = 'block';
-            document.getElementById('scanStatus').textContent = 'カメラを起動しています...';
+            document.getElementById('scanStatus').textContent = '高精度カメラを起動中...';
             
-            // カメラのアクセス権限をチェック
-            navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 320 },
-                    height: { ideal: 240 }
-                } 
-            })
-            .then(stream => {
-                cameraStream = stream;
-                const video = document.getElementById('cameraVideo');
-                video.srcObject = stream;
-                video.classList.remove('hidden');
-                
-                // カメラが正常に起動したらQuaggaを試す
+            // 高精度カメラ設定
+            const constraints = {
+                video: {
+                    facingMode: currentCamera,
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
+                    focusMode: 'continuous',
+                    focusDistance: { min: 0.1, max: Infinity },
+                    zoom: { min: 1, max: 3 }
+                }
+            };
+
+            // iOS Safari用の特別設定
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                constraints.video = {
+                    ...constraints.video,
+                    frameRate: { ideal: 30, max: 60 },
+                    aspectRatio: { ideal: 16/9 }
+                };
+            }
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    setupCamera(stream);
+                })
+                .catch(error => {
+                    console.error('高精度カメラアクセスエラー:', error);
+                    // フォールバック: 基本設定で再試行
+                    const basicConstraints = {
+                        video: {
+                            facingMode: currentCamera,
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    };
+                    
+                    navigator.mediaDevices.getUserMedia(basicConstraints)
+                        .then(stream => {
+                            setupCamera(stream);
+                        })
+                        .catch(fallbackError => {
+                            console.error('基本カメラアクセスエラー:', fallbackError);
+                            updateBarcodeStatus('❌ カメラにアクセスできません。設定を確認してください。', 'error');
+                            resetToManualMode();
+                        });
+                });
+        }
+
+        function setupCamera(stream) {
+            cameraStream = stream;
+            const video = document.getElementById('cameraVideo');
+            video.srcObject = stream;
+            video.classList.remove('hidden');
+            
+            // カメラコントロールを表示
+            document.getElementById('cameraControls').classList.remove('hidden');
+            document.getElementById('focusGuide').classList.remove('hidden');
+            document.getElementById('tapToFocusHint').classList.remove('hidden');
+            
+            // タップでフォーカス機能を追加
+            video.addEventListener('click', handleTapToFocus);
+            
+            // カメラの機能をチェック
+            const track = stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            
+            console.log('カメラ機能:', capabilities);
+            
+            // オートフォーカスを有効化（可能な場合）
+            if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                track.applyConstraints({
+                    advanced: [{ focusMode: 'continuous' }]
+                }).catch(e => console.log('オートフォーカス設定失敗:', e));
+            }
+            
+            // カメラが準備できたらQuaggaを初期化
+            video.addEventListener('loadedmetadata', () => {
                 setTimeout(() => {
-                    initializeQuagga();
+                    initializeAdvancedQuagga();
                 }, 1000);
-            })
-            .catch(error => {
-                console.error('カメラアクセスエラー:', error);
-                document.getElementById('scanStatus').textContent = 'カメラにアクセスできません';
-                updateBarcodeStatus('❌ カメラアクセスが拒否されました。手動でバーコードを入力してください。', 'error');
-                
-                // 3秒後にカメラなしモードに切り替え
-                setTimeout(() => {
-                    resetToManualMode();
-                }, 3000);
             });
         }
 
-        function initializeQuagga() {
+        function handleTapToFocus(event) {
+            const video = event.target;
+            const rect = video.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // フォーカスポイントを表示
+            showFocusPoint(x, y, video);
+            
+            // 実際のフォーカス調整を試行
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                
+                if (capabilities.focusMode) {
+                    track.applyConstraints({
+                        advanced: [{ 
+                            focusMode: 'single-shot',
+                            pointsOfInterest: [{ x: x / rect.width, y: y / rect.height }]
+                        }]
+                    }).then(() => {
+                        console.log('フォーカス調整完了');
+                        // 0.5秒後にcontinuousモードに戻す
+                        setTimeout(() => {
+                            track.applyConstraints({
+                                advanced: [{ focusMode: 'continuous' }]
+                            }).catch(e => console.log('連続フォーカス復帰失敗:', e));
+                        }, 500);
+                    }).catch(e => {
+                        console.log('手動フォーカス失敗:', e);
+                        // 代替案: ズームイン/アウトでフォーカス刺激
+                        attemptFocusRefresh();
+                    });
+                }
+            }
+        }
+
+        function showFocusPoint(x, y, container) {
+            // 既存のフォーカスポイントを削除
+            const existingPoint = container.querySelector('.focus-point');
+            if (existingPoint) {
+                existingPoint.remove();
+            }
+            
+            // 新しいフォーカスポイントを作成
+            const focusPoint = document.createElement('div');
+            focusPoint.className = 'focus-point';
+            focusPoint.style.cssText = `
+                position: absolute;
+                left: ${x - 25}px;
+                top: ${y - 25}px;
+                width: 50px;
+                height: 50px;
+                border: 2px solid #00ff00;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 100;
+                animation: focusAnimation 1s ease-out;
+            `;
+            
+            // アニメーション定義
+            if (!document.querySelector('#focusAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'focusAnimation';
+                style.textContent = `
+                    @keyframes focusAnimation {
+                        0% { transform: scale(1.5); opacity: 1; }
+                        100% { transform: scale(1); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            container.style.position = 'relative';
+            container.appendChild(focusPoint);
+            
+            // 1秒後に削除
+            setTimeout(() => {
+                if (focusPoint.parentNode) {
+                    focusPoint.remove();
+                }
+            }, 1000);
+        }
+
+        function attemptFocusRefresh() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const constraints = track.getConstraints();
+                
+                // 一時的にズームを変更してフォーカスを刺激
+                track.applyConstraints({
+                    ...constraints,
+                    advanced: [{ zoom: 1.1 }]
+                }).then(() => {
+                    setTimeout(() => {
+                        track.applyConstraints({
+                            ...constraints,
+                            advanced: [{ zoom: 1.0 }]
+                        }).catch(e => console.log('ズームリセット失敗:', e));
+                    }, 200);
+                }).catch(e => {
+                    console.log('フォーカス刺激失敗:', e);
+                });
+            }
+        }
+
+        function manualFocus() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                
+                // オートフォーカスを強制実行
+                track.applyConstraints({
+                    advanced: [{ focusMode: 'single-shot' }]
+                }).then(() => {
+                    updateBarcodeStatus('🎯 フォーカス調整中...', 'info');
+                    setTimeout(() => {
+                        track.applyConstraints({
+                            advanced: [{ focusMode: 'continuous' }]
+                        }).then(() => {
+                            updateBarcodeStatus('✅ フォーカス調整完了', 'success');
+                        }).catch(e => console.log('連続フォーカス復帰失敗:', e));
+                    }, 1000);
+                }).catch(e => {
+                    console.log('手動フォーカス失敗:', e);
+                    attemptFocusRefresh();
+                    updateBarcodeStatus('⚠️ フォーカス調整を試行中...', 'warning');
+                });
+            }
+        }
+
+        function switchCamera() {
+            currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+            stopBarcodeScanner();
+            startAdvancedBarcodeScanner();
+        }
+
+        function toggleFlashlight() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                
+                if (capabilities.torch) {
+                    flashlightEnabled = !flashlightEnabled;
+                    track.applyConstraints({
+                        advanced: [{ torch: flashlightEnabled }]
+                    }).then(() => {
+                        updateBarcodeStatus(flashlightEnabled ? '💡 フラッシュON' : '💡 フラッシュOFF', 'info');
+                    }).catch(e => {
+                        console.log('フラッシュライト制御失敗:', e);
+                        updateBarcodeStatus('❌ フラッシュライト非対応', 'error');
+                    });
+                } else {
+                    updateBarcodeStatus('❌ フラッシュライト非対応', 'error');
+                }
+            }
+        }
+
+        function initializeAdvancedQuagga() {
             if (typeof Quagga === 'undefined') {
                 console.log('Quagga not available, using manual input');
-                updateBarcodeStatus('🔍 カメラプレビューは利用可能です。手動でバーコードを入力してください。', 'info');
-                document.getElementById('scanStatus').textContent = 'カメラ起動完了 - 手動入力をご利用ください';
+                updateBarcodeStatus('🔍 高精度カメラは利用可能です。下記に手動でバーコードを入力してください。', 'info');
+                document.getElementById('scanStatus').textContent = '高精度カメラ起動完了 - 手動入力をご利用ください';
+                showManualInputHint();
                 return;
             }
 
-            document.getElementById('scanStatus').textContent = 'バーコード読み取り準備中...';
+            document.getElementById('scanStatus').textContent = '高精度バーコード読み取り準備中...';
             isScanning = true;
 
-            // よりシンプルな設定でQuaggaを初期化
+            // 高精度設定でQuaggaを初期化
             Quagga.init({
                 inputStream: {
                     name: "Live",
                     type: "LiveStream", 
                     target: document.querySelector('#cameraVideo'),
                     constraints: {
-                        width: { min: 320, ideal: 640, max: 800 },
-                        height: { min: 240, ideal: 480, max: 600 },
-                        facingMode: "environment",
-                        aspectRatio: { min: 1, max: 2 }
+                        width: { min: 640, ideal: 1280, max: 1920 },
+                        height: { min: 480, ideal: 720, max: 1080 },
+                        facingMode: currentCamera,
+                        aspectRatio: { min: 1, max: 2.5 }
+                    },
+                    area: { // 読み取り領域を制限
+                        top: "20%",
+                        right: "20%", 
+                        left: "20%",
+                        bottom: "20%"
                     }
                 },
                 decoder: {
                     readers: [
-                        "ean_reader",      // EAN-13/EAN-8 (最も一般的)
-                        "ean_8_reader",
-                        "code_128_reader", // Code-128
-                        "upc_reader",      // UPC-A
-                        "upc_e_reader"     // UPC-E
-                    ]
+                        "ean_reader",       // EAN-13/EAN-8 (最も一般的) - 優先度最高
+                        "ean_8_reader",     // EAN-8
+                        "code_128_reader",  // Code-128
+                        "upc_reader",       // UPC-A
+                        "upc_e_reader",     // UPC-E
+                        "code_39_reader"    // Code-39
+                    ],
+                    multiple: false // 単一バーコードのみ
                 },
                 locate: true,
-                frequency: 3,      // スキャン頻度を下げて安定化
-                numOfWorkers: 0,   // ワーカーを無効化
+                frequency: 3,        // スキャン頻度（安定性重視）
+                numOfWorkers: 0,     // ワーカーを無効化（安定性重視）
                 locator: {
-                    halfSample: false,  // 精度を上げる
-                    patchSize: "large", // パッチサイズを大きく
+                    halfSample: false,   // フル解像度使用
+                    patchSize: "large",  // 大きなパッチサイズ
                     debug: {
                         showCanvas: false,
                         showPatches: false,
@@ -804,32 +1095,42 @@
                 }
             }, function(err) {
                 if (err) {
-                    console.error('Quagga initialization error:', err);
-                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。下記にバーコード番号を手動で入力してください。', 'warning');
-                    document.getElementById('scanStatus').textContent = 'カメラプレビューのみ利用可能';
+                    console.error('高精度Quagga初期化エラー:', err);
+                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。カメラを確認しながら手動で入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = '高精度カメラプレビューのみ利用可能';
                     showManualInputHint();
                     return;
                 }
                 
-                console.log('Quagga initialized successfully');
-                document.getElementById('scanStatus').textContent = 'バーコードをカメラの中央に向けてください';
-                updateBarcodeStatus('📷 バーコードを画面中央に近づけてください（距離10-30cm程度）', 'scanning');
+                console.log('高精度Quagga初期化成功');
+                document.getElementById('scanStatus').textContent = 'バーコードをガイド枠内に合わせてください';
+                updateBarcodeStatus('📷 バーコードを中央のガイド枠に合わせてください（距離15-25cm）', 'scanning');
                 
                 try {
                     Quagga.start();
                     quaggaInitialized = true;
 
-                    // バーコード検出時のコールバック
+                    // バーコード検出時のコールバック - より厳格な検証
                     Quagga.onDetected(function(data) {
                         if (!isScanning) return; // 既に処理中の場合は無視
 
                         const code = data.codeResult.code;
                         const confidence = data.codeResult.startInfo ? (1 - data.codeResult.startInfo.error) : 0;
+                        const format = data.codeResult.format;
                         
-                        console.log('Barcode detected:', code, 'Confidence:', confidence);
+                        console.log('バーコード検出:', {
+                            code: code,
+                            confidence: confidence,
+                            format: format,
+                            length: code.length
+                        });
                         
-                        // 信頼性が高い場合のみ処理
-                        if (confidence > 0.8 && code.length >= 8) {
+                        // より厳格な検証条件
+                        const isValidLength = code.length >= 8 && code.length <= 14;
+                        const isHighConfidence = confidence > 0.85;
+                        const isNumeric = /^\d+$/.test(code);
+                        
+                        if (isValidLength && isHighConfidence && isNumeric) {
                             isScanning = false; // 重複検出を防ぐ
                             
                             document.getElementById('barcodeInput').value = code;
@@ -838,42 +1139,63 @@
                             const existingItem = items.find(item => item.barcode === code);
                             if (existingItem) {
                                 updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
-                                playBeep();
+                                playBeep(800, 0.3); // 成功音
                             } else {
-                                updateBarcodeStatus(`📝 バーコード読み取り完了: ${code}`, 'warning');
-                                // 軽いビープ音
-                                playBeep(600, 0.2);
+                                updateBarcodeStatus(`📝 新商品検出: ${code} (${format})`, 'warning');
+                                playBeep(600, 0.2); // 警告音
                             }
                             
+                            // 読み取り成功エフェクト
+                            showSuccessEffect();
+                            
                             // スキャンを一時停止
-                            pauseScanning();
+                            setTimeout(() => {
+                                pauseScanning();
+                            }, 2000);
+                            
                         } else {
-                            console.log('Low confidence detection ignored:', confidence);
+                            console.log('検証失敗:', {
+                                validLength: isValidLength,
+                                highConfidence: isHighConfidence,
+                                numeric: isNumeric,
+                                actualConfidence: confidence
+                            });
                         }
                     });
 
-                    // 処理済みバーコードの検出を防ぐために、時々リセット
+                    // 定期的なフォーカス更新
                     setInterval(() => {
                         if (isScanning && quaggaInitialized) {
-                            console.log('Refreshing barcode scanner...');
+                            attemptFocusRefresh();
                         }
-                    }, 30000); // 30秒ごと
+                    }, 10000); // 10秒ごと
 
                 } catch (startError) {
-                    console.error('Quagga start error:', startError);
+                    console.error('高精度Quagga開始エラー:', startError);
                     updateBarcodeStatus('❌ バーコード読み取りの開始に失敗しました。手動で入力してください。', 'error');
                     showManualInputHint();
                 }
             });
             
-            // 15秒でタイムアウト
+            // 20秒でタイムアウト（高精度なので時間延長）
             setTimeout(() => {
                 if (isScanning && document.getElementById('scanStatus').textContent.includes('準備中')) {
                     updateBarcodeStatus('⏱️ 自動読み取りが利用できません。下記に手動でバーコードを入力してください。', 'warning');
                     document.getElementById('scanStatus').textContent = '手動入力をご利用ください';
                     showManualInputHint();
                 }
-            }, 15000);
+            }, 20000);
+        }
+
+        function showSuccessEffect() {
+            const guide = document.getElementById('focusGuide');
+            guide.style.borderColor = '#10b981';
+            guide.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            
+            setTimeout(() => {
+                guide.style.borderColor = '#3b82f6';
+                guide.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            }, 1500);
         }
 
         function showManualInputHint() {
@@ -952,7 +1274,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.1.0',
+                version: 'v2.2.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

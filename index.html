@@ -430,7 +430,10 @@
                     <label>現在の数量</label>
                     <input type="number" id="itemQuantity" class="form-control" placeholder="現在の数量" value="0">
                 </div>
-
+                <div>
+                    <label>単価（円）</label>
+                    <input type="number" id="itemPrice" class="form-control" placeholder="単価を入力" value="0" step="0.01">
+                </div>
                 <div>
                     <label>最小在庫数（アラート基準）</label>
                     <input type="number" id="itemMinStock" class="form-control" placeholder="最小在庫数" value="1">
@@ -439,7 +442,7 @@
                     <label>保管場所</label>
                     <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
                 </div>
-                <div>
+                <div style="grid-column: 1 / -1;">
                     <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード" style="flex: 1;">
@@ -1892,12 +1895,12 @@
             
             // スキャンが停止していたら再開
             if (!isScanning) {
-                startAdvancedBarcodeScanner();
+                startBarcodeScanner();
             } else {
                 // すでにスキャン中の場合は一度停止してから再開
                 pauseScanning();
                 setTimeout(() => {
-                    startAdvancedBarcodeScanner();
+                    startBarcodeScanner();
                 }, 500);
             }
         }
@@ -2001,8 +2004,6 @@
             }
             return null;
         }
-
-
 
         // 定期的にデバッグ情報を更新
         setInterval(() => {
@@ -2110,33 +2111,13 @@
                         statusElement.style.backgroundColor = '#dbeafe';
                         statusElement.style.color = '#1e40af';
                         break;
+                    case 'info':
+                        statusElement.style.backgroundColor = '#e0f2fe';
+                        statusElement.style.color = '#0c4a6e';
+                        break;
                     default:
                         statusElement.style.color = '#6b7280';
                 }
-            }
-        }
-
-        function playBeep() {
-            try {
-                // 簡単なビープ音
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = 800;
-                oscillator.type = 'square';
-                
-                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.3);
-            } catch (error) {
-                console.log('Audio not supported');
             }
         }
 
@@ -2189,7 +2170,7 @@
                 // 3秒後に自動でスキャン再開（オプション）
                 setTimeout(() => {
                     if (document.getElementById('barcodeModal').classList.contains('hidden') === false) {
-                        startBarcodeScanner();
+                        startAdvancedBarcodeScanner();
                     }
                 }, 3000);
                 
@@ -2216,6 +2197,11 @@
                     alert(`📝 新しい商品です（バーコード: ${barcode}）\n商品情報を入力して登録してください。`);
                 }, 300);
             }
+        }
+
+        // startBarcodeScanner関数の参照を修正
+        function startBarcodeScanner() {
+            startAdvancedBarcodeScanner();
         }
     </script>
 </body>

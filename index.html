@@ -486,7 +486,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.9 - 2025.05.31 - 最小在庫0対応版
+                v3.1.2 - 2025.05.31 - UI改善版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -522,9 +522,35 @@
                     <input type="number" id="itemPrice" class="form-control" placeholder="直近購買時の単価" value="0" step="0.01">
                 </div>
                 <div>
+                    <label>容量</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="itemVolume" class="form-control" placeholder="容量" value="0" step="0.01" style="flex: 2;">
+                        <select id="itemUnit" class="form-control" style="flex: 1;">
+                            <option value="ml">ml</option>
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="L">L</option>
+                            <option value="個">個</option>
+                            <option value="枚">枚</option>
+                            <option value="本">本</option>
+                            <option value="袋">袋</option>
+                            <option value="箱">箱</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+                    <input type="text" id="itemUnitCustom" class="form-control hidden" placeholder="単位を入力" style="margin-top: 8px;">
+                    <small style="color: #6b7280;">比較単価の計算に使用されます</small>
+                </div>
+                <div>
                     <label>最小在庫数（アラート基準）</label>
                     <input type="number" id="itemMinStock" class="form-control" placeholder="最小在庫数" value="1" min="0">
-                    <small style="color: #6b7280;">0にするとアラートが無効になります</small>
+                    <div style="margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                            <input type="checkbox" id="itemAlertDisabled" style="margin: 0;">
+                            <span>アラートを無効にする</span>
+                        </label>
+                    </div>
+                    <small style="color: #6b7280;">チェックすると在庫不足アラートが表示されません</small>
                 </div>
                 <div>
                     <label>保管場所</label>
@@ -573,7 +599,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.9</div>
+                <div>バージョン: v3.1.2</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -843,6 +869,10 @@
             document.getElementById('itemSupplier').addEventListener('change', function() {
                 toggleCustomInput('itemSupplier', 'itemSupplierCustom');
             });
+            
+            document.getElementById('itemUnit').addEventListener('change', function() {
+                toggleCustomInput('itemUnit', 'itemUnitCustom');
+            });
         });
 
         // カスタム入力の表示/非表示切り替え
@@ -864,8 +894,16 @@
             const select = document.getElementById(selectId);
             const customInput = document.getElementById(customInputId);
             
-            // 設定データから選択肢を取得
-            const options = selectId === 'itemLocation' ? appSettings.locations : appSettings.suppliers;
+            // 設定データから選択肢を取得（単位の場合は固定選択肢）
+            let options = [];
+            if (selectId === 'itemLocation') {
+                options = appSettings.locations;
+            } else if (selectId === 'itemSupplier') {
+                options = appSettings.suppliers;
+            } else if (selectId === 'itemUnit') {
+                options = ['ml', 'g', 'kg', 'L', '個', '枚', '本', '袋', '箱'];
+            }
+            
             const optionExists = options.includes(value);
             
             if (optionExists && value !== '') {
@@ -880,7 +918,7 @@
                 customInput.value = value;
             } else {
                 // 値が空の場合
-                select.value = '';
+                select.value = selectId === 'itemUnit' ? 'ml' : '';
                 customInput.classList.add('hidden');
                 customInput.value = '';
             }
@@ -903,9 +941,9 @@
 
         function loadSampleData() {
             items = [
-                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, minStock: 2, location: '洗面所', supplier: 'ドラッグストア', barcode: '4901301234567' },
-                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, minStock: 1, location: 'キッチン', supplier: 'スーパー', barcode: '4902102876543' },
-                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, minStock: 1, location: '洗濯機横', supplier: 'Amazon', barcode: '4903301123456' }
+                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, volume: 12, unit: '個', minStock: 2, alertDisabled: false, location: '洗面所', supplier: 'ドラッグストア', barcode: '4901301234567' },
+                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, volume: 500, unit: 'ml', minStock: 1, alertDisabled: false, location: 'キッチン', supplier: 'スーパー', barcode: '4902102876543' },
+                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, volume: 900, unit: 'ml', minStock: 1, alertDisabled: false, location: '洗濯機横', supplier: 'Amazon', barcode: '4903301123456' }
             ];
         }
 
@@ -1016,6 +1054,30 @@
             }
         }
 
+        // 比較単価を計算する関数
+        function calculateUnitPrice(price, volume) {
+            if (!price || !volume || volume <= 0) return 0;
+            return price / volume;
+        }
+        
+        // 比較単価を表示用にフォーマットする関数
+        function formatUnitPrice(price, volume, unit) {
+            const unitPrice = calculateUnitPrice(price, volume);
+            if (unitPrice === 0) return '未計算';
+            
+            // 小数点以下の桁数を調整
+            let formattedPrice;
+            if (unitPrice >= 10) {
+                formattedPrice = unitPrice.toFixed(1);
+            } else if (unitPrice >= 1) {
+                formattedPrice = unitPrice.toFixed(2);
+            } else {
+                formattedPrice = unitPrice.toFixed(3);
+            }
+            
+            return `¥${formattedPrice}/${unit || '単位'}`;
+        }
+
         // 商品の表示
         function renderItems() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
@@ -1074,8 +1136,12 @@
                     supplier: '未設定'
                 };
                 
+                // 比較単価を計算
+                const unitPriceFormatted = formatUnitPrice(item.price, item.volume, item.unit);
+                const volumeDisplay = item.volume && item.unit ? `${item.volume}${item.unit}` : '未設定';
+                
                 return `
-                <div class="item-card ${(item.minStock > 0 && item.quantity <= item.minStock) ? 'low-stock' : ''}">
+                <div class="item-card ${(!item.alertDisabled && item.quantity <= item.minStock) ? 'low-stock' : ''}">
                     <div class="item-header">
                         <div class="item-title">${item.name}</div>
                         <div class="item-actions">
@@ -1091,7 +1157,16 @@
                         </tr>
                         <tr>
                             <td>在庫数</td>
-                            <td>${item.quantity}個（最小在庫：${item.minStock === 0 ? '0（アラート無効）' : item.minStock + '個'}）</td>
+                            <td>${item.quantity}個（最小在庫：${item.minStock}個${item.alertDisabled ? '・アラート無効' : ''}）</td>
+                        </tr>
+                        <tr>
+                            <td>容量・比較単価</td>
+                            <td>
+                                <div style="font-size: 13px;">
+                                    容量: <strong>${volumeDisplay}</strong><br>
+                                    比較単価: <strong style="color: #dc2626;">${unitPriceFormatted}</strong>
+                                </div>
+                            </td>
                         </tr>
                         <tr>
                             <td>直近購買</td>
@@ -1123,7 +1198,7 @@
                             <div class="quantity-text">${item.quantity}</div>
                             <button class="quantity-btn quantity-plus" onclick="updateQuantity(${item.id}, 1)">＋</button>
                         </div>
-                        ${(item.minStock > 0 && item.quantity <= item.minStock) ? '<div class="low-stock-badge">在庫不足</div>' : ''}
+                        ${(!item.alertDisabled && item.quantity <= item.minStock) ? '<div class="low-stock-badge">在庫不足</div>' : ''}
                     </div>
                 </div>
                 `;
@@ -1132,7 +1207,9 @@
 
         // 在庫不足アラート
         function updateLowStockAlert() {
-            const lowStockItems = items.filter(item => item.minStock > 0 && item.quantity <= item.minStock);
+            const lowStockItems = items.filter(item => 
+                !item.alertDisabled && item.quantity <= item.minStock
+            );
             const alert = document.getElementById('lowStockAlert');
             const list = document.getElementById('lowStockList');
 
@@ -1220,7 +1297,12 @@
             document.getElementById('itemName').value = '';
             document.getElementById('itemQuantity').value = '0';
             document.getElementById('itemPrice').value = '0';
+            document.getElementById('itemVolume').value = '0';
+            document.getElementById('itemUnit').value = 'ml';
+            document.getElementById('itemUnitCustom').value = '';
+            document.getElementById('itemUnitCustom').classList.add('hidden');
             document.getElementById('itemMinStock').value = '1';
+            document.getElementById('itemAlertDisabled').checked = false;
             document.getElementById('itemLocation').value = '';
             document.getElementById('itemLocationCustom').value = '';
             document.getElementById('itemLocationCustom').classList.add('hidden');
@@ -1272,8 +1354,16 @@
                 const name = document.getElementById('itemName').value.trim();
                 const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
                 const price = parseFloat(document.getElementById('itemPrice').value) || 0;
+                const volume = parseFloat(document.getElementById('itemVolume').value) || 0;
+                
+                // 単位の取得（ドロップダウンまたはカスタム入力）
+                const unitSelect = document.getElementById('itemUnit').value;
+                const unitCustom = document.getElementById('itemUnitCustom').value.trim();
+                const unit = unitSelect === 'その他' ? unitCustom : unitSelect;
+                
                 const minStockValue = document.getElementById('itemMinStock').value;
                 const minStock = minStockValue === '' ? 1 : parseInt(minStockValue);
+                const alertDisabled = document.getElementById('itemAlertDisabled').checked;
                 
                 // 保管場所の取得（ドロップダウンまたはカスタム入力）
                 const locationSelect = document.getElementById('itemLocation').value;
@@ -1287,7 +1377,7 @@
                 
                 const barcode = document.getElementById('itemBarcode').value.trim();
 
-                console.log('📝 入力値:', { name, quantity, price, minStock, location, supplier, barcode });
+                console.log('📝 入力値:', { name, quantity, price, volume, unit, minStock, alertDisabled, location, supplier, barcode });
 
                 if (!name) {
                     alert('商品名を入力してください');
@@ -1314,7 +1404,10 @@
                         category: '一般', 
                         quantity, 
                         price, 
-                        minStock, 
+                        volume,
+                        unit,
+                        minStock,
+                        alertDisabled,
                         location, 
                         supplier, 
                         barcode 
@@ -1363,7 +1456,10 @@
                         category: '一般', 
                         quantity, 
                         price, 
-                        minStock, 
+                        volume,
+                        unit,
+                        minStock,
+                        alertDisabled,
                         location, 
                         supplier, 
                         barcode
@@ -1429,7 +1525,13 @@
                 document.getElementById('itemName').value = item.name || '';
                 document.getElementById('itemQuantity').value = item.quantity || 0;
                 document.getElementById('itemPrice').value = item.price || 0;
+                document.getElementById('itemVolume').value = item.volume || 0;
+                
+                // 単位の設定
+                setDropdownValue('itemUnit', 'itemUnitCustom', item.unit || 'ml');
+                
                 document.getElementById('itemMinStock').value = item.minStock || 1;
+                document.getElementById('itemAlertDisabled').checked = item.alertDisabled || false;
                 
                 // 保管場所の設定
                 setDropdownValue('itemLocation', 'itemLocationCustom', item.location || '');
@@ -2040,7 +2142,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.9',
+                version: 'v3.1.2',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -2584,13 +2686,11 @@
                     alert(`✅ 商品情報を取得しました！\n商品名: ${productInfo.name}`);
                 } else {
                     updateBarcodeStatus('⚠️ 商品情報が見つかりませんでした', 'warning');
-                    alert('🔍 商品情報が見つかりませんでした。\n手動で商品名を入力してください。');
                 }
 
             } catch (error) {
                 console.error('商品情報取得エラー:', error);
                 updateBarcodeStatus('❌ 商品情報の取得に失敗しました', 'error');
-                alert('❌ 商品情報の取得に失敗しました。\n手動で商品名を入力してください。');
             } finally {
                 fetchBtn.textContent = '🔍 商品情報取得';
                 fetchBtn.disabled = false;

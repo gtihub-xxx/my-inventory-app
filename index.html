@@ -486,7 +486,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.5 - 2025.05.31 - 購買情報一列表示版
+                v3.0.6 - 2025.05.31 - 編集機能修正版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -563,7 +563,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.5</div>
+                <div>バージョン: v3.0.6</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -1102,112 +1102,179 @@
         }
 
         function saveItem() {
-            const name = document.getElementById('itemName').value.trim();
-            const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
-            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
-            const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
-            const location = document.getElementById('itemLocation').value.trim();
-            const supplier = document.getElementById('itemSupplier').value.trim();
-            const barcode = document.getElementById('itemBarcode').value.trim();
-
-            if (!name) {
-                alert('商品名を入力してください');
-                return;
-            }
-
-            if (editingItem) {
-                // 編集
-                const index = items.findIndex(item => item.id === editingItem.id);
-                const oldQuantity = items[index].quantity;
-                const oldPrice = items[index].price || 0;
-                items[index] = { ...editingItem, name, category: '一般', quantity, price, minStock, location, supplier, barcode };
-                
-                // 数量が変更された場合は履歴に記録
-                if (oldQuantity !== quantity) {
-                    const operationType = quantity > oldQuantity ? 'in' : 'out';
-                    addTransactionHistory(
-                        editingItem.id,
-                        name,
-                        'adjustment',
-                        Math.abs(quantity - oldQuantity),
-                        oldQuantity,
-                        quantity,
-                        'manual',
-                        barcode,
-                        `商品編集による数量調整（${oldQuantity} → ${quantity}）`,
-                        price
-                    );
-                }
-                
-                // 単価が変更された場合も履歴に記録
-                if (oldPrice !== price) {
-                    addTransactionHistory(
-                        editingItem.id,
-                        name,
-                        'adjustment',
-                        0,
-                        quantity,
-                        quantity,
-                        'manual',
-                        barcode,
-                        `単価変更（¥${oldPrice.toLocaleString()} → ¥${price.toLocaleString()}）`,
-                        price
-                    );
-                }
-            } else {
-                // 新規追加
-                const newItem = {
-                    id: Date.now(),
-                    name, category: '一般', quantity, price, minStock, location, supplier, barcode
-                };
-                items.push(newItem);
-                
-                // 新規登録を履歴に記録
-                if (quantity > 0) {
-                    addTransactionHistory(
-                        newItem.id,
-                        name,
-                        'in',
-                        quantity,
-                        0,
-                        quantity,
-                        tempBarcodeData ? 'barcode' : 'manual',
-                        barcode,
-                        '新商品登録',
-                        price
-                    );
-                }
-                
-                console.log('✅ 新商品を登録しました:', newItem);
-            }
-
-            saveItems();
-            renderItems();
+            console.log('💾 商品保存開始');
             
-            // 一時保存データをクリア
-            if (tempBarcodeData) {
-                tempBarcodeData = null;
-                console.log('保存完了: 一時バーコードデータをクリア');
+            try {
+                // フィールドから値を取得
+                const name = document.getElementById('itemName').value.trim();
+                const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
+                const price = parseFloat(document.getElementById('itemPrice').value) || 0;
+                const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
+                const location = document.getElementById('itemLocation').value.trim();
+                const supplier = document.getElementById('itemSupplier').value.trim();
+                const barcode = document.getElementById('itemBarcode').value.trim();
+
+                console.log('📝 入力値:', { name, quantity, price, minStock, location, supplier, barcode });
+
+                if (!name) {
+                    alert('商品名を入力してください');
+                    document.getElementById('itemName').focus();
+                    return;
+                }
+
+                if (editingItem) {
+                    console.log('✏️ 既存商品を編集:', editingItem.id);
+                    
+                    // 編集
+                    const index = items.findIndex(item => item.id === editingItem.id);
+                    if (index === -1) {
+                        alert('❌ 編集対象の商品が見つかりません');
+                        return;
+                    }
+                    
+                    const oldQuantity = items[index].quantity;
+                    const oldPrice = items[index].price || 0;
+                    
+                    items[index] = { 
+                        ...editingItem, 
+                        name, 
+                        category: '一般', 
+                        quantity, 
+                        price, 
+                        minStock, 
+                        location, 
+                        supplier, 
+                        barcode 
+                    };
+                    
+                    console.log('✅ 商品更新完了:', items[index]);
+                    
+                    // 数量が変更された場合は履歴に記録
+                    if (oldQuantity !== quantity) {
+                        addTransactionHistory(
+                            editingItem.id,
+                            name,
+                            'adjustment',
+                            Math.abs(quantity - oldQuantity),
+                            oldQuantity,
+                            quantity,
+                            'manual',
+                            barcode,
+                            `商品編集による数量調整（${oldQuantity} → ${quantity}）`,
+                            price
+                        );
+                    }
+                    
+                    // 単価が変更された場合も履歴に記録
+                    if (oldPrice !== price) {
+                        addTransactionHistory(
+                            editingItem.id,
+                            name,
+                            'adjustment',
+                            0,
+                            quantity,
+                            quantity,
+                            'manual',
+                            barcode,
+                            `単価変更（¥${oldPrice.toLocaleString()} → ¥${price.toLocaleString()}）`,
+                            price
+                        );
+                    }
+                } else {
+                    console.log('➕ 新商品を追加');
+                    
+                    // 新規追加
+                    const newItem = {
+                        id: Date.now(),
+                        name, 
+                        category: '一般', 
+                        quantity, 
+                        price, 
+                        minStock, 
+                        location, 
+                        supplier, 
+                        barcode
+                    };
+                    items.push(newItem);
+                    
+                    console.log('✅ 新商品追加完了:', newItem);
+                    
+                    // 新規登録を履歴に記録
+                    if (quantity > 0) {
+                        addTransactionHistory(
+                            newItem.id,
+                            name,
+                            'in',
+                            quantity,
+                            0,
+                            quantity,
+                            tempBarcodeData ? 'barcode' : 'manual',
+                            barcode,
+                            '新商品登録',
+                            price
+                        );
+                    }
+                }
+
+                saveItems();
+                renderItems();
+                
+                // 一時保存データをクリア
+                if (tempBarcodeData) {
+                    tempBarcodeData = null;
+                    console.log('🗑️ 一時バーコードデータをクリア');
+                }
+                
+                cancelForm();
+                console.log('✅ 商品保存完了');
+                
+            } catch (error) {
+                console.error('❌ 商品保存エラー:', error);
+                alert('❌ 商品の保存に失敗しました: ' + error.message);
             }
-            
-            cancelForm();
         }
 
         // 商品編集
         function editItem(id) {
             const item = items.find(item => item.id === id);
-            if (!item) return;
+            if (!item) {
+                console.error('編集対象の商品が見つかりません:', id);
+                alert('❌ 編集対象の商品が見つかりません');
+                return;
+            }
 
+            console.log('📝 商品編集開始:', item);
+            
             editingItem = item;
             document.getElementById('formTitle').textContent = '商品を編集';
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemQuantity').value = item.quantity;
-            document.getElementById('itemPrice').value = item.price || 0;
-            document.getElementById('itemMinStock').value = item.minStock;
-            document.getElementById('itemLocation').value = item.location;
-            document.getElementById('itemSupplier').value = item.supplier || '';
-            document.getElementById('itemBarcode').value = item.barcode || '';
+            
+            // フィールドに値を設定
+            try {
+                document.getElementById('itemName').value = item.name || '';
+                document.getElementById('itemQuantity').value = item.quantity || 0;
+                document.getElementById('itemPrice').value = item.price || 0;
+                document.getElementById('itemMinStock').value = item.minStock || 1;
+                document.getElementById('itemLocation').value = item.location || '';
+                document.getElementById('itemSupplier').value = item.supplier || '';
+                document.getElementById('itemBarcode').value = item.barcode || '';
+                
+                console.log('✅ フィールド設定完了');
+            } catch (error) {
+                console.error('❌ フィールド設定エラー:', error);
+                alert('❌ 編集フォームの設定に失敗しました: ' + error.message);
+                return;
+            }
+            
+            // フォームを表示
             document.getElementById('addForm').classList.remove('hidden');
+            
+            // 商品名フィールドにフォーカス
+            setTimeout(() => {
+                const nameField = document.getElementById('itemName');
+                if (nameField) {
+                    nameField.focus();
+                }
+            }, 100);
         }
 
         // 商品削除
@@ -1792,7 +1859,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.5',
+                version: 'v3.0.6',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

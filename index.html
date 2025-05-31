@@ -380,7 +380,93 @@
             margin-left: 5px;
         }
         
-        @media (max-width: 768px) {
+        .item-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .item-info-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        
+        .item-info-table td:first-child {
+            font-weight: 600;
+            color: #374151;
+            width: 30%;
+            background-color: #f9fafb;
+        }
+        
+        .item-info-table td:last-child {
+            color: #6b7280;
+        }
+        
+        .purchase-info {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .purchase-date {
+            color: #059669;
+            font-weight: 500;
+        }
+        
+        .purchase-price {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        
+        .purchase-supplier {
+            color: #7c3aed;
+            font-weight: 500;
+        }
+        
+        .item-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .item-info-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        
+        .item-info-table td:first-child {
+            font-weight: 600;
+            color: #374151;
+            width: 30%;
+            background-color: #f9fafb;
+        }
+        
+        .item-info-table td:last-child {
+            color: #6b7280;
+        }
+        
+        .purchase-info {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .purchase-date {
+            color: #059669;
+            font-weight: 500;
+        }
+        
+        .purchase-price {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        
+        .purchase-supplier {
+            color: #7c3aed;
+            font-weight: 500;
+        }
             .controls {
                 flex-direction: column;
             }
@@ -400,7 +486,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.2 - 2025.05.31 - 購買先情報追加版
+                v3.0.5 - 2025.05.31 - 購買情報一列表示版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -413,7 +499,7 @@
         </div>
 
         <div class="controls">
-            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、購買先で検索...">
+            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、直近購買先で検索...">
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
             <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
@@ -431,8 +517,8 @@
                     <input type="number" id="itemQuantity" class="form-control" placeholder="現在の数量" value="0">
                 </div>
                 <div>
-                    <label>単価（円）</label>
-                    <input type="number" id="itemPrice" class="form-control" placeholder="単価を入力" value="0" step="0.01">
+                    <label>直近購買時の単価（円）</label>
+                    <input type="number" id="itemPrice" class="form-control" placeholder="直近購買時の単価" value="0" step="0.01">
                 </div>
                 <div>
                     <label>最小在庫数（アラート基準）</label>
@@ -443,8 +529,8 @@
                     <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
                 </div>
                 <div>
-                    <label>購買先</label>
-                    <input type="text" id="itemSupplier" class="form-control" placeholder="購買先（例: Amazon、スーパー、ドラッグストア）">
+                    <label>直近購買先</label>
+                    <input type="text" id="itemSupplier" class="form-control" placeholder="直近購買先（例: Amazon、スーパー、ドラッグストア）">
                 </div>
                 <div style="grid-column: 1 / -1;">
                     <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
@@ -477,7 +563,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.2</div>
+                <div>バージョン: v3.0.5</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -601,7 +687,7 @@
                             <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">品名</th>
                             <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">入庫/出庫</th>
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">数量</th>
-                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">単価</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">購買単価</th>
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">金額</th>
                             <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">削除</th>
                         </tr>
@@ -795,7 +881,42 @@
             noItems.classList.add('hidden');
             container.innerHTML = filteredItems.map(item => {
                 const totalValue = (item.quantity * (item.price || 0)).toLocaleString();
-                const unitPrice = (item.price || 0).toLocaleString();
+                
+                // 直近購買情報を取得
+                const recentPurchase = transactionHistory
+                    .filter(entry => entry.itemId === item.id && entry.operationType === 'in')
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                
+                // 最低単価購買情報を取得
+                const lowestPricePurchase = transactionHistory
+                    .filter(entry => entry.itemId === item.id && entry.operationType === 'in' && entry.price > 0)
+                    .sort((a, b) => a.price - b.price)[0];
+                
+                // 直近購買情報の整形
+                const recentPurchaseInfo = recentPurchase ? {
+                    date: new Date(recentPurchase.timestamp).toLocaleDateString('ja-JP', { 
+                        year: 'numeric', month: '2-digit', day: '2-digit' 
+                    }),
+                    price: `¥${(recentPurchase.price || 0).toLocaleString()}`,
+                    supplier: item.supplier || '未設定'
+                } : {
+                    date: '未記録',
+                    price: '¥0',
+                    supplier: '未設定'
+                };
+                
+                // 最低単価購買情報の整形
+                const lowestPriceInfo = lowestPricePurchase ? {
+                    date: new Date(lowestPricePurchase.timestamp).toLocaleDateString('ja-JP', { 
+                        year: 'numeric', month: '2-digit', day: '2-digit' 
+                    }),
+                    price: `¥${lowestPricePurchase.price.toLocaleString()}`,
+                    supplier: item.supplier || '未設定'
+                } : {
+                    date: '未記録',
+                    price: '¥0',
+                    supplier: '未設定'
+                };
                 
                 return `
                 <div class="item-card ${item.quantity <= item.minStock ? 'low-stock' : ''}">
@@ -806,14 +927,40 @@
                             <button class="btn-small btn-danger" onclick="deleteItem(${item.id})">🗑️</button>
                         </div>
                     </div>
-                    <div class="item-details">
-                        <div>場所: ${item.location}</div>
-                        <div>購買先: ${item.supplier || '未設定'}</div>
-                        <div>最小在庫: ${item.minStock}</div>
-                        <div>単価: ¥${unitPrice}</div>
-                        <div>在庫金額: ¥${totalValue}</div>
-                        ${item.barcode ? `<div>バーコード: ${item.barcode}</div>` : ''}
-                    </div>
+                    
+                    <table class="item-info-table">
+                        <tr>
+                            <td>場所</td>
+                            <td>${item.location}</td>
+                        </tr>
+                        <tr>
+                            <td>在庫数</td>
+                            <td>${item.quantity}個（最小在庫：${item.minStock}個）</td>
+                        </tr>
+                        <tr>
+                            <td>直近購買</td>
+                            <td class="purchase-info">
+                                購買日：<span class="purchase-date">${recentPurchaseInfo.date}</span>、単価：<span class="purchase-price">${recentPurchaseInfo.price}</span>、購買先：<span class="purchase-supplier">${recentPurchaseInfo.supplier}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>最低購買</td>
+                            <td class="purchase-info">
+                                購買日：<span class="purchase-date">${lowestPriceInfo.date}</span>、単価：<span class="purchase-price">${lowestPriceInfo.price}</span>、購買先：<span class="purchase-supplier">${lowestPriceInfo.supplier}</span>
+                            </td>
+                        </tr>
+                        ${item.barcode ? `
+                        <tr>
+                            <td>バーコード</td>
+                            <td>${item.barcode}</td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td>在庫金額</td>
+                            <td><strong>¥${totalValue}</strong></td>
+                        </tr>
+                    </table>
+                    
                     <div class="quantity-controls">
                         <div class="quantity-display">
                             <button class="quantity-btn quantity-minus" onclick="updateQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>−</button>
@@ -1072,6 +1219,25 @@
             }
         }
 
+        // 直近購買情報を履歴から更新
+        function updateRecentPurchaseInfo(itemId) {
+            const recentPurchase = transactionHistory
+                .filter(entry => entry.itemId === itemId && entry.operationType === 'in')
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+            
+            if (recentPurchase) {
+                const item = items.find(item => item.id === itemId);
+                if (item) {
+                    // 直近の入庫履歴から単価と購買先を更新
+                    if (recentPurchase.price > 0) {
+                        item.price = recentPurchase.price;
+                    }
+                    // 履歴にメモがあれば購買先として設定（簡易実装）
+                    console.log(`📊 ${item.name}の直近購買情報を更新: 単価¥${item.price}`);
+                }
+            }
+        }
+
         // 数量更新
         function updateQuantity(id, change) {
             const item = items.find(item => item.id === id);
@@ -1094,6 +1260,11 @@
                     `ボタンによる${operationType === 'in' ? '入庫' : '出庫'}`,
                     item.price || 0
                 );
+                
+                // 入庫の場合は直近購買情報を更新
+                if (operationType === 'in') {
+                    updateRecentPurchaseInfo(item.id);
+                }
                 
                 saveItems();
                 renderItems();
@@ -1621,7 +1792,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.2',
+                version: 'v3.0.5',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1890,7 +2061,7 @@
             }
             
             // CSVヘッダー
-            let csvContent = '日にち,品名,入庫/出庫,数量,単価,金額\n';
+            let csvContent = '日にち,品名,入庫/出庫,数量,購買単価,金額\n';
             
             // CSVデータ
             filteredHistory.forEach(entry => {
@@ -2201,6 +2372,11 @@
                     `バーコードスキャナーによる${operationType === 'in' ? '入庫' : '出庫'}`,
                     existingItem.price || 0
                 );
+                
+                // 入庫の場合は直近購買情報を更新
+                if (operationType === 'in') {
+                    updateRecentPurchaseInfo(existingItem.id);
+                }
                 
                 const action = operationType === 'in' ? '入庫' : '出庫';
                 const amount = quantity * (existingItem.price || 0);

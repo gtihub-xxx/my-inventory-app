@@ -363,6 +363,23 @@
             cursor: pointer;
         }
         
+        /* バーコード自動設定のスタイル */
+        .barcode-auto-filled {
+            background-color: #e0f2fe !important;
+            border-color: #0891b2 !important;
+            border-width: 2px !important;
+            font-weight: bold !important;
+        }
+        
+        .barcode-auto-label {
+            background: #0891b2;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        
         @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
@@ -383,7 +400,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.5.0 - 2025.05.31 - バーコード引き継ぎ根本修正版
+                v2.6.0 - 2025.05.31 - バーコード引き継ぎ改善版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -432,7 +449,7 @@
                     <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
                 </div>
                 <div>
-                    <label>バーコード</label>
+                    <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード" style="flex: 1;">
                         <button type="button" class="btn btn-secondary" onclick="fetchProductInfo()" style="padding: 8px 12px; white-space: nowrap;" id="fetchProductBtn">🔍 商品情報取得</button>
@@ -462,7 +479,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.5.0</div>
+                <div>バージョン: v2.6.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -554,6 +571,9 @@
         let quaggaInitialized = false;
         let currentCamera = 'environment'; // 'environment' or 'user'
         let flashlightEnabled = false;
+        
+        // バーコードデータを一時保存する変数
+        let tempBarcodeData = null;
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -700,12 +720,21 @@
             }
         }
 
-        // 商品追加フォーム（通常版）
-        function openAddForm() {
+        // 商品追加フォーム（改善版）
+        function openAddForm(barcodeData = null) {
+            // 一時保存されたバーコードデータがあるかチェック
+            const effectiveBarcodeData = barcodeData || tempBarcodeData;
+            
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('formTitle').textContent = '新しい商品を追加';
             clearForm();
             editingItem = null;
+            
+            // バーコードデータがある場合は自動設定
+            if (effectiveBarcodeData) {
+                console.log('📱 バーコードデータを新規登録フォームに設定:', effectiveBarcodeData);
+                applyBarcodeDataToForm(effectiveBarcodeData);
+            }
             
             // 商品名フィールドにフォーカス
             setTimeout(() => {
@@ -714,6 +743,35 @@
                     nameField.focus();
                 }
             }, 100);
+        }
+
+        // バーコードデータをフォームに適用
+        function applyBarcodeDataToForm(barcodeData) {
+            const barcodeField = document.getElementById('itemBarcode');
+            const quantityField = document.getElementById('itemQuantity');
+            const barcodeLabel = document.getElementById('barcodeAutoLabel');
+            
+            if (barcodeData.barcode) {
+                barcodeField.value = barcodeData.barcode;
+                barcodeField.classList.add('barcode-auto-filled');
+                barcodeField.title = 'バーコードスキャナーから自動入力されました';
+                barcodeLabel.classList.remove('hidden');
+                
+                console.log('✅ バーコード自動設定完了:', barcodeData.barcode);
+            }
+            
+            if (barcodeData.quantity) {
+                quantityField.value = barcodeData.quantity;
+                quantityField.style.backgroundColor = '#e0f2fe';
+                console.log('✅ 数量自動設定完了:', barcodeData.quantity);
+            }
+            
+            // 商品情報の自動取得を試行
+            if (barcodeData.barcode) {
+                setTimeout(() => {
+                    fetchProductInfo();
+                }, 500);
+            }
         }
 
         function clearForm() {
@@ -727,8 +785,10 @@
             // スタイルリセット
             const barcodeField = document.getElementById('itemBarcode');
             const quantityField = document.getElementById('itemQuantity');
+            const barcodeLabel = document.getElementById('barcodeAutoLabel');
             
             if (barcodeField) {
+                barcodeField.classList.remove('barcode-auto-filled');
                 barcodeField.style.backgroundColor = '';
                 barcodeField.style.borderColor = '';
                 barcodeField.style.borderWidth = '';
@@ -740,13 +800,21 @@
             if (quantityField) {
                 quantityField.style.backgroundColor = '';
             }
+            
+            if (barcodeLabel) {
+                barcodeLabel.classList.add('hidden');
+            }
         }
 
         function cancelForm() {
             document.getElementById('addForm').classList.add('hidden');
             editingItem = null;
             
-            console.log('📝 フォームをキャンセル');
+            // 一時保存データをクリア
+            if (tempBarcodeData) {
+                tempBarcodeData = null;
+                console.log('📝 フォームキャンセル: 一時バーコードデータをクリア');
+            }
         }
 
         function saveItem() {
@@ -773,14 +841,15 @@
                     name, category: '一般', quantity, unit, minStock, location, barcode
                 };
                 items.push(newItem);
+                console.log('✅ 新商品を登録しました:', newItem);
             }
 
             saveItems();
             renderItems();
             
             // 一時保存データをクリア
-            if (window.tempBarcodeData) {
-                delete window.tempBarcodeData;
+            if (tempBarcodeData) {
+                tempBarcodeData = null;
                 console.log('保存完了: 一時バーコードデータをクリア');
             }
             
@@ -1336,7 +1405,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.5.0',
+                version: 'v2.6.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1670,6 +1739,7 @@
             }
         }
 
+        // バーコード取引実行（改善版）
         function executeBarcodeTransaction() {
             const barcode = document.getElementById('barcodeInput').value.trim();
             const quantity = parseInt(document.getElementById('barcodeQuantity').value);
@@ -1711,12 +1781,22 @@
                     return;
                 }
                 
-                // 新商品の場合
-                document.getElementById('itemBarcode').value = barcode;
-                document.getElementById('itemQuantity').value = quantity;
+                // 新商品の場合 - バーコードデータを保存して新規登録フォームを開く
+                tempBarcodeData = {
+                    barcode: barcode,
+                    quantity: quantity,
+                    source: 'scanner'
+                };
+                
+                console.log('📱 新商品検出、バーコードデータを保存:', tempBarcodeData);
+                
                 closeBarcodeScanner();
-                openAddForm();
-                alert('📝 新しい商品です。商品情報を入力して登録してください。');
+                
+                // 少し待ってから新規登録フォームを開く（UI の安定性のため）
+                setTimeout(() => {
+                    openAddForm();
+                    alert(`📝 新しい商品です（バーコード: ${barcode}）\n商品情報を入力して登録してください。`);
+                }, 300);
             }
         }
     </script>

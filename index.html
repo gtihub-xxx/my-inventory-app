@@ -400,7 +400,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.1 - 2025.05.31 - 単価・金額管理機能修正版
+                v3.0.2 - 2025.05.31 - 購買先情報追加版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -413,7 +413,7 @@
         </div>
 
         <div class="controls">
-            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所で検索...">
+            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、購買先で検索...">
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
             <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
@@ -441,6 +441,10 @@
                 <div>
                     <label>保管場所</label>
                     <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
+                </div>
+                <div>
+                    <label>購買先</label>
+                    <input type="text" id="itemSupplier" class="form-control" placeholder="購買先（例: Amazon、スーパー、ドラッグストア）">
                 </div>
                 <div style="grid-column: 1 / -1;">
                     <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
@@ -473,7 +477,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.1</div>
+                <div>バージョン: v3.0.2</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -696,9 +700,9 @@
 
         function loadSampleData() {
             items = [
-                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, minStock: 2, location: '洗面所', barcode: '4901301234567' },
-                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, minStock: 1, location: 'キッチン', barcode: '4902102876543' },
-                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
+                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, minStock: 2, location: '洗面所', supplier: 'ドラッグストア', barcode: '4901301234567' },
+                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, minStock: 1, location: 'キッチン', supplier: 'スーパー', barcode: '4902102876543' },
+                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, minStock: 1, location: '洗濯機横', supplier: 'Amazon', barcode: '4903301123456' }
             ];
         }
 
@@ -775,7 +779,8 @@
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const filteredItems = items.filter(item =>
                 item.name.toLowerCase().includes(searchTerm) ||
-                item.location.toLowerCase().includes(searchTerm)
+                item.location.toLowerCase().includes(searchTerm) ||
+                (item.supplier && item.supplier.toLowerCase().includes(searchTerm))
             );
 
             const container = document.getElementById('itemsGrid');
@@ -803,6 +808,7 @@
                     </div>
                     <div class="item-details">
                         <div>場所: ${item.location}</div>
+                        <div>購買先: ${item.supplier || '未設定'}</div>
                         <div>最小在庫: ${item.minStock}</div>
                         <div>単価: ¥${unitPrice}</div>
                         <div>在庫金額: ¥${totalValue}</div>
@@ -910,6 +916,7 @@
             document.getElementById('itemPrice').value = '0';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
+            document.getElementById('itemSupplier').value = '';
             document.getElementById('itemBarcode').value = '';
             
             // スタイルリセット
@@ -953,6 +960,7 @@
             const price = parseFloat(document.getElementById('itemPrice').value) || 0;
             const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
             const location = document.getElementById('itemLocation').value.trim();
+            const supplier = document.getElementById('itemSupplier').value.trim();
             const barcode = document.getElementById('itemBarcode').value.trim();
 
             if (!name) {
@@ -965,7 +973,7 @@
                 const index = items.findIndex(item => item.id === editingItem.id);
                 const oldQuantity = items[index].quantity;
                 const oldPrice = items[index].price || 0;
-                items[index] = { ...editingItem, name, category: '一般', quantity, price, minStock, location, barcode };
+                items[index] = { ...editingItem, name, category: '一般', quantity, price, minStock, location, supplier, barcode };
                 
                 // 数量が変更された場合は履歴に記録
                 if (oldQuantity !== quantity) {
@@ -1003,7 +1011,7 @@
                 // 新規追加
                 const newItem = {
                     id: Date.now(),
-                    name, category: '一般', quantity, price, minStock, location, barcode
+                    name, category: '一般', quantity, price, minStock, location, supplier, barcode
                 };
                 items.push(newItem);
                 
@@ -1050,6 +1058,7 @@
             document.getElementById('itemPrice').value = item.price || 0;
             document.getElementById('itemMinStock').value = item.minStock;
             document.getElementById('itemLocation').value = item.location;
+            document.getElementById('itemSupplier').value = item.supplier || '';
             document.getElementById('itemBarcode').value = item.barcode || '';
             document.getElementById('addForm').classList.remove('hidden');
         }
@@ -1612,7 +1621,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.1',
+                version: 'v3.0.2',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

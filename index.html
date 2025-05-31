@@ -318,7 +318,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.0 - 2025.05.31 - 確実動作版
+                v3.1.0 - 2025.05.31 - 安定版（カメラ修正）
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -368,11 +368,7 @@
                 </div>
                 <div>
                     <label>バーコード</label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード" style="flex: 1;">
-                        <button type="button" class="btn btn-secondary" onclick="fetchProductInfo()" style="padding: 8px 12px; white-space: nowrap;" id="fetchProductBtn">🔍 商品情報取得</button>
-                    </div>
-                    <small style="color: #6b7280;">バーコードから商品名を自動取得できます</small>
+                    <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード">
                 </div>
             </div>
             <div>
@@ -402,12 +398,7 @@
                 <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
                 <canvas id="scanCanvas" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
-                    <div style="text-align: center; padding: 20px;">
-                        <p style="color: #6b7280; margin-bottom: 15px;">カメラを起動しています...</p>
-                        <div style="font-size: 14px; color: #9ca3af;">
-                            バーコードをカメラに向けてください
-                        </div>
-                    </div>
+                    <button class="btn btn-primary" onclick="startBarcodeScanner()">📷 バーコードスキャン開始</button>
                 </div>
                 <div id="scanStatus" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
                     スキャン中...
@@ -574,39 +565,27 @@
             }
         }
 
-        // 商品追加フォーム（引数でバーコード・数量を受け取る）
+        // 商品追加フォーム（バーコード・数量の引き継ぎ対応）
         function openAddForm(barcode = '', quantity = '') {
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('formTitle').textContent = '新しい商品を追加';
             clearForm();
             editingItem = null;
             
-            // バーコード・数量を設定（緑色ハイライト）
+            // バーコード・数量がある場合は設定（緑色ハイライト）
             if (barcode) {
                 const barcodeField = document.getElementById('itemBarcode');
                 barcodeField.value = barcode;
                 barcodeField.style.backgroundColor = '#dcfce7';
                 barcodeField.style.borderColor = '#10b981';
-                barcodeField.style.borderWidth = '3px';
-                console.log('✅ バーコード設定成功:', barcode);
+                barcodeField.style.borderWidth = '2px';
+                console.log('✅ バーコード自動設定:', barcode);
             }
             if (quantity) {
                 const quantityField = document.getElementById('itemQuantity');
                 quantityField.value = quantity;
                 quantityField.style.backgroundColor = '#dcfce7';
-                console.log('✅ 数量設定成功:', quantity);
-            }
-            
-            // 商品名にフォーカス
-            setTimeout(() => {
-                document.getElementById('itemName').focus();
-            }, 100);
-            
-            // バーコードがあれば商品情報自動取得を試行
-            if (barcode && barcode.length >= 8) {
-                setTimeout(() => {
-                    fetchProductInfo();
-                }, 1000);
+                console.log('✅ 数量自動設定:', quantity);
             }
         }
 
@@ -619,16 +598,15 @@
             document.getElementById('itemBarcode').value = '';
             
             // スタイルリセット
-            const barcodeField = document.getElementById('itemBarcode');
-            const quantityField = document.getElementById('itemQuantity');
-            if (barcodeField) {
-                barcodeField.style.backgroundColor = '';
-                barcodeField.style.borderColor = '';
-                barcodeField.style.borderWidth = '';
-            }
-            if (quantityField) {
-                quantityField.style.backgroundColor = '';
-            }
+            const fields = ['itemBarcode', 'itemQuantity'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.style.backgroundColor = '';
+                    field.style.borderColor = '';
+                    field.style.borderWidth = '';
+                }
+            });
         }
 
         function cancelForm() {
@@ -660,7 +638,6 @@
                     name, category: '一般', quantity, unit, minStock, location, barcode
                 };
                 items.push(newItem);
-                console.log('✅ 新商品登録完了:', { name, barcode, quantity });
             }
 
             saveItems();
@@ -703,17 +680,12 @@
             }
         }
 
-        // バーコードスキャナー（ワンクリック起動）
+        // バーコードスキャナー
         function openBarcodeScanner() {
             document.getElementById('barcodeModal').classList.remove('hidden');
             document.getElementById('barcodeInput').value = '';
             document.getElementById('barcodeQuantity').value = '1';
             updateBarcodeStatus('');
-            
-            // 0.5秒後に自動でスキャン開始
-            setTimeout(() => {
-                startBarcodeScanner();
-            }, 500);
         }
 
         function closeBarcodeScanner() {
@@ -724,17 +696,11 @@
         // 再スキャン機能
         function restartBarcodeScanning() {
             document.getElementById('barcodeInput').value = '';
-            document.getElementById('barcodeQuantity').value = '1';
-            updateBarcodeStatus('🔄 新しいバーコードをスキャンしてください', 'scanning');
-            
-            if (!isScanning) {
+            updateBarcodeStatus('🔄 再スキャンを準備中...', 'info');
+            stopBarcodeScanner();
+            setTimeout(() => {
                 startBarcodeScanner();
-            } else {
-                stopBarcodeScanner();
-                setTimeout(() => {
-                    startBarcodeScanner();
-                }, 500);
-            }
+            }, 500);
         }
 
         function startBarcodeScanner() {
@@ -762,12 +728,12 @@
                 },
                 decoder: {
                     readers: [
-                        "ean_reader",
-                        "ean_8_reader", 
                         "code_128_reader",
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_39_reader",
                         "upc_reader",
-                        "upc_e_reader",
-                        "code_39_reader"
+                        "upc_e_reader"
                     ]
                 },
                 locate: true,
@@ -814,6 +780,7 @@
                     const existingItem = items.find(item => item.barcode === code);
                     if (existingItem) {
                         updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                        // ビープ音
                         playBeep();
                     } else {
                         updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
@@ -900,6 +867,10 @@
                         statusElement.style.backgroundColor = '#dbeafe';
                         statusElement.style.color = '#1e40af';
                         break;
+                    case 'info':
+                        statusElement.style.backgroundColor = '#f0f9ff';
+                        statusElement.style.color = '#0369a1';
+                        break;
                     default:
                         statusElement.style.color = '#6b7280';
                 }
@@ -952,19 +923,9 @@
                 
                 saveItems();
                 renderItems();
-                
-                // フォームリセット + 次のスキャン準備
                 document.getElementById('barcodeInput').value = '';
                 document.getElementById('barcodeQuantity').value = '1';
                 updateBarcodeStatus('処理完了！次のバーコードをスキャンできます。', 'success');
-                
-                // 2秒後に自動でスキャン再開
-                setTimeout(() => {
-                    if (!document.getElementById('barcodeModal').classList.contains('hidden')) {
-                        startBarcodeScanner();
-                    }
-                }, 2000);
-                
             } else {
                 if (operationType === 'out') {
                     alert('❌ 未登録の商品は出庫できません。先に商品を登録してください。');
@@ -974,94 +935,8 @@
                 // 新商品の場合 - 確実なバーコード引き継ぎ
                 console.log('🎯 新商品登録:', { barcode, quantity });
                 closeBarcodeScanner();
-                openAddForm(barcode, quantity); // ←ここで確実に引き継ぎ
+                openAddForm(barcode, quantity); // 引数で確実に渡す
                 alert('📝 新しい商品です。商品情報を入力して登録してください。\nバーコードと数量は自動で入力されています。');
-            }
-        }
-
-        // バーコードから商品情報を取得
-        async function fetchProductInfo() {
-            const barcode = document.getElementById('itemBarcode').value.trim();
-            const fetchBtn = document.getElementById('fetchProductBtn');
-            
-            if (!barcode) {
-                alert('バーコードを入力してください');
-                return;
-            }
-
-            if (barcode.length < 8 || barcode.length > 14 || !/^\d+$/.test(barcode)) {
-                alert('正しいバーコード（8-14桁の数字）を入力してください');
-                return;
-            }
-
-            fetchBtn.textContent = '取得中...';
-            fetchBtn.disabled = true;
-
-            try {
-                // Open Food Facts API (食品系)
-                let productInfo = null;
-                try {
-                    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                    const data = await response.json();
-                    
-                    if (data.status === 1 && data.product) {
-                        const product = data.product;
-                        productInfo = {
-                            name: product.product_name || product.product_name_ja || product.product_name_en,
-                            brand: product.brands,
-                            unit: product.quantity || ''
-                        };
-                    }
-                } catch (error) {
-                    console.log('OpenFoodFacts API失敗:', error);
-                }
-
-                // UPC Database API (汎用)
-                if (!productInfo) {
-                    try {
-                        const response = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
-                        const data = await response.json();
-                        
-                        if (data.code === 'OK' && data.items && data.items.length > 0) {
-                            const item = data.items[0];
-                            productInfo = {
-                                name: item.title,
-                                brand: item.brand,
-                                unit: ''
-                            };
-                        }
-                    } catch (error) {
-                        console.log('UPC Database API失敗:', error);
-                    }
-                }
-
-                if (productInfo && productInfo.name) {
-                    // 商品情報を自動入力
-                    if (!document.getElementById('itemName').value) {
-                        document.getElementById('itemName').value = productInfo.name;
-                    }
-                    
-                    // 単位を推測
-                    const name = productInfo.name.toLowerCase();
-                    const unitSelect = document.getElementById('itemUnit');
-                    if (!unitSelect.value) {
-                        if (name.includes('トイレットペーパー') || name.includes('ティッシュ')) unitSelect.value = 'パック';
-                        else if (name.includes('洗剤') || name.includes('シャンプー')) unitSelect.value = '本';
-                        else if (name.includes('牛乳') || name.includes('ジュース')) unitSelect.value = '本';
-                        else unitSelect.value = '個';
-                    }
-
-                    alert(`✅ 商品情報を取得しました！\n商品名: ${productInfo.name}`);
-                } else {
-                    alert('🔍 商品情報が見つかりませんでした。\n手動で商品名を入力してください。');
-                }
-
-            } catch (error) {
-                console.error('商品情報取得エラー:', error);
-                alert('❌ 商品情報の取得に失敗しました。\n手動で商品名を入力してください。');
-            } finally {
-                fetchBtn.textContent = '🔍 商品情報取得';
-                fetchBtn.disabled = false;
             }
         }
     </script>

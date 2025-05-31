@@ -400,7 +400,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.8.0 - 2025.05.31 - 入出庫履歴機能追加版
+                v2.9.0 - 2025.05.31 - 履歴一覧表示＋CSV出力版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -466,7 +466,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.8.0</div>
+                <div>バージョン: v2.9.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -571,6 +571,7 @@
                         <option value="month">1ヶ月</option>
                     </select>
                     <button class="btn btn-secondary" onclick="clearHistory()" style="white-space: nowrap;">🗑️ 履歴削除</button>
+                    <button class="btn btn-primary" onclick="exportHistoryCSV()" style="white-space: nowrap;">📥 CSV出力</button>
                 </div>
                 
                 <div id="historyStats" style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
@@ -580,7 +581,20 @@
                 </div>
             </div>
 
-            <div id="historyList" style="max-height: 400px; overflow-y: auto;">
+            <div id="historyList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #f9fafb; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">日にち</th>
+                            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">品名</th>
+                            <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">入庫/出庫</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">数量</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- 履歴データがここに表示される -->
+                    </tbody>
+                </table>
                 <div id="noHistory" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
                     履歴がありません
                 </div>
@@ -1539,7 +1553,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.8.0',
+                version: 'v2.9.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1648,57 +1662,52 @@
             // 統計更新
             updateHistoryStats(filteredHistory);
             
-            const container = document.getElementById('historyList');
+            const tableBody = document.getElementById('historyTableBody');
             const noHistory = document.getElementById('noHistory');
             
             if (filteredHistory.length === 0) {
-                container.innerHTML = '';
+                tableBody.innerHTML = '';
                 noHistory.classList.remove('hidden');
                 return;
             }
             
             noHistory.classList.add('hidden');
             
-            container.innerHTML = filteredHistory.map(entry => {
+            tableBody.innerHTML = filteredHistory.map(entry => {
                 const date = new Date(entry.timestamp);
                 const dateStr = date.toLocaleDateString('ja-JP', { 
-                    month: 'short', 
-                    day: 'numeric', 
+                    year: 'numeric',
+                    month: '2-digit', 
+                    day: '2-digit',
                     hour: '2-digit', 
                     minute: '2-digit' 
                 });
                 
-                const operationIcon = entry.operationType === 'in' ? '📥' : 
-                                    entry.operationType === 'out' ? '📤' : '⚖️';
-                const operationText = entry.operationType === 'in' ? '入庫' : 
-                                    entry.operationType === 'out' ? '出庫' : '調整';
-                const operationColor = entry.operationType === 'in' ? '#10b981' : 
-                                     entry.operationType === 'out' ? '#ef4444' : '#f59e0b';
+                let operationText = '';
+                let operationColor = '';
                 
-                const sourceIcon = entry.source === 'barcode' ? '📱' : 
-                                 entry.source === 'button' ? '🖱️' : '✏️';
+                if (entry.operationType === 'in') {
+                    operationText = '入庫';
+                    operationColor = '#10b981';
+                } else if (entry.operationType === 'out') {
+                    operationText = '出庫';
+                    operationColor = '#ef4444';
+                } else {
+                    operationText = '調整';
+                    operationColor = '#f59e0b';
+                }
                 
                 return `
-                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px; background: white;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <div style="flex: 1;">
-                                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">
-                                    ${operationIcon} ${entry.itemName}
-                                </div>
-                                <div style="font-size: 14px; color: #6b7280;">
-                                    <span style="color: ${operationColor}; font-weight: bold;">${operationText} ${entry.quantity}個</span>
-                                    <span style="margin: 0 8px;">|</span>
-                                    <span>${entry.previousQuantity} → ${entry.newQuantity}</span>
-                                </div>
-                            </div>
-                            <div style="text-align: right; font-size: 12px; color: #9ca3af;">
-                                <div>${dateStr}</div>
-                                <div style="margin-top: 2px;">${sourceIcon} ${entry.source}</div>
-                            </div>
-                        </div>
-                        ${entry.barcode ? `<div style="font-size: 12px; color: #6b7280;">バーコード: ${entry.barcode}</div>` : ''}
-                        ${entry.note ? `<div style="font-size: 12px; color: #6b7280; font-style: italic;">${entry.note}</div>` : ''}
-                    </div>
+                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 8px; font-size: 13px;">${dateStr}</td>
+                        <td style="padding: 8px; font-size: 14px; font-weight: 500;">${entry.itemName}</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span style="background: ${operationColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                ${operationText}
+                            </span>
+                        </td>
+                        <td style="padding: 8px; text-align: right; font-size: 14px; font-weight: 600;">${entry.quantity}</td>
+                    </tr>
                 `;
             }).join('');
         }
@@ -1728,6 +1737,88 @@
                     }
                 }
             }
+        }
+        
+        // 履歴CSV出力機能
+        function exportHistoryCSV() {
+            const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+            const filterType = document.getElementById('historyFilter').value;
+            const periodFilter = document.getElementById('historyPeriod').value;
+            
+            // 現在のフィルタ条件に合致する履歴を取得
+            let filteredHistory = transactionHistory.filter(entry => {
+                const matchesSearch = entry.itemName.toLowerCase().includes(searchTerm);
+                const matchesType = filterType === 'all' || entry.operationType === filterType;
+                
+                let matchesPeriod = true;
+                if (periodFilter !== 'all') {
+                    const entryDate = new Date(entry.timestamp);
+                    const now = new Date();
+                    
+                    switch (periodFilter) {
+                        case 'today':
+                            matchesPeriod = entryDate.toDateString() === now.toDateString();
+                            break;
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= weekAgo;
+                            break;
+                        case 'month':
+                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= monthAgo;
+                            break;
+                    }
+                }
+                
+                return matchesSearch && matchesType && matchesPeriod;
+            });
+            
+            if (filteredHistory.length === 0) {
+                alert('📄 出力する履歴がありません');
+                return;
+            }
+            
+            // CSVヘッダー
+            let csvContent = '日にち,品名,入庫/出庫,数量\n';
+            
+            // CSVデータ
+            filteredHistory.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const dateStr = date.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const operationText = entry.operationType === 'in' ? '入庫' : 
+                                    entry.operationType === 'out' ? '出庫' : '調整';
+                
+                // CSV形式で追加（カンマを含む項目は引用符で囲む）
+                csvContent += `"${dateStr}","${entry.itemName}","${operationText}","${entry.quantity}"\n`;
+            });
+            
+            // BOMを追加してExcelで文字化けを防ぐ
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // ファイル名を生成（現在の日時を含む）
+            const now = new Date();
+            const filename = `入出庫履歴_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.csv`;
+            
+            // ダウンロード実行
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            
+            alert(`📥 履歴をCSVファイルで出力しました\nファイル名: ${filename}\n件数: ${filteredHistory.length}件`);
         }
 
         // 再スキャン機能

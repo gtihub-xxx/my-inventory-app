@@ -383,7 +383,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.3.0 - 2025.05.31 - バーコード引き継ぎ + 商品情報自動取得対応版
+                v2.3.1 - 2025.05.31 - バーコード引き継ぎ改善 + 継続スキャン最適化版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -462,7 +462,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.3.0</div>
+                <div>バージョン: v2.3.1</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -696,11 +696,33 @@
         }
 
         // 商品追加フォーム
-        function openAddForm() {
+        function openAddForm(presetData = null) {
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('formTitle').textContent = '新しい商品を追加';
             clearForm();
             editingItem = null;
+            
+            // 事前設定データがある場合は適用
+            if (presetData) {
+                setTimeout(() => {
+                    if (presetData.barcode) {
+                        document.getElementById('itemBarcode').value = presetData.barcode;
+                        console.log('バーコード事前設定:', presetData.barcode);
+                    }
+                    if (presetData.quantity) {
+                        document.getElementById('itemQuantity').value = presetData.quantity;
+                        console.log('数量事前設定:', presetData.quantity);
+                    }
+                }, 50);
+            }
+            
+            // 商品名フィールドにフォーカス
+            setTimeout(() => {
+                const nameField = document.getElementById('itemName');
+                if (nameField) {
+                    nameField.focus();
+                }
+            }, 100);
         }
 
         function clearForm() {
@@ -1159,10 +1181,17 @@
                             // 読み取り成功エフェクト
                             showSuccessEffect();
                             
-                            // スキャンを一時停止
+                            // 自動で数量フィールドにフォーカス（使いやすさ向上）
                             setTimeout(() => {
-                                pauseScanning();
-                            }, 2000);
+                                const quantityField = document.getElementById('barcodeQuantity');
+                                if (quantityField) {
+                                    quantityField.focus();
+                                    quantityField.select(); // 既存の値を選択状態に
+                                }
+                            }, 500);
+                            
+                            // スキャンは停止（ユーザーが実行ボタンを押すまで待機）
+                            pauseScanning();
                             
                         } else {
                             console.log('検証失敗:', {
@@ -1285,7 +1314,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.3.0',
+                version: 'v2.3.1',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1342,17 +1371,18 @@
         // 再スキャン機能
         function restartBarcodeScanning() {
             document.getElementById('barcodeInput').value = '';
-            updateBarcodeStatus('🔄 スキャンを再開します...', 'info');
+            document.getElementById('barcodeQuantity').value = '1';
+            updateBarcodeStatus('🔄 新しいバーコードをスキャンしてください', 'scanning');
             
-            // 現在スキャン中でなければ開始
+            // スキャンが停止していたら再開
             if (!isScanning) {
                 startAdvancedBarcodeScanner();
             } else {
-                // スキャン中の場合は一度停止してから再開
+                // すでにスキャン中の場合は一度停止してから再開
                 pauseScanning();
                 setTimeout(() => {
                     startAdvancedBarcodeScanner();
-                }, 1000);
+                }, 500);
             }
         }
 

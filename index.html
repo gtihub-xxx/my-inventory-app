@@ -263,7 +263,7 @@
         
         .camera-preview {
             width: 100%;
-            height: 200px;
+            height: 250px;
             background: #f3f4f6;
             border-radius: 8px;
             display: flex;
@@ -272,17 +272,82 @@
             margin-bottom: 15px;
             position: relative;
             overflow: hidden;
+            border: 2px solid #d1d5db;
         }
-        
+
         .camera-video {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
+
         .camera-placeholder {
             color: #6b7280;
             text-align: center;
+        }
+
+        .focus-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 80px;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .focus-guide::before {
+            content: 'バーコードをここに合わせる';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .camera-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .control-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tap-to-focus-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            z-index: 15;
         }
         
         .radio-group {
@@ -296,6 +361,23 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
+        }
+        
+        /* バーコード自動設定のスタイル */
+        .barcode-auto-filled {
+            background-color: #e0f2fe !important;
+            border-color: #0891b2 !important;
+            border-width: 2px !important;
+            font-weight: bold !important;
+        }
+        
+        .barcode-auto-label {
+            background: #0891b2;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 5px;
         }
         
         @media (max-width: 768px) {
@@ -318,7 +400,11 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.1.0 - 2025.05.31 - 安定版（カメラ修正）
+                v3.0.0 - 2025.05.31 - 単価・金額管理機能追加版
+            </div>
+            <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
+                <span id="totalItems">商品数: 0</span> | 
+                <span id="totalValue">総在庫金額: ¥0</span>
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -330,6 +416,7 @@
             <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所で検索...">
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
+            <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
         </div>
 
         <div id="addForm" class="form-section hidden">
@@ -343,21 +430,7 @@
                     <label>現在の数量</label>
                     <input type="number" id="itemQuantity" class="form-control" placeholder="現在の数量" value="0">
                 </div>
-                <div>
-                    <label>単位</label>
-                    <select id="itemUnit" class="form-control">
-                        <option value="">単位を選択</option>
-                        <option value="個">個</option>
-                        <option value="本">本</option>
-                        <option value="パック">パック</option>
-                        <option value="kg">kg</option>
-                        <option value="g">g</option>
-                        <option value="L">L</option>
-                        <option value="ml">ml</option>
-                        <option value="袋">袋</option>
-                        <option value="箱">箱</option>
-                    </select>
-                </div>
+
                 <div>
                     <label>最小在庫数（アラート基準）</label>
                     <input type="number" id="itemMinStock" class="form-control" placeholder="最小在庫数" value="1">
@@ -367,8 +440,12 @@
                     <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
                 </div>
                 <div>
-                    <label>バーコード</label>
-                    <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード">
+                    <label>バーコード <span id="barcodeAutoLabel" class="barcode-auto-label hidden">📱 スキャンで自動入力済み</span></label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード" style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" onclick="fetchProductInfo()" style="padding: 8px 12px; white-space: nowrap;" id="fetchProductBtn">🔍 商品情報取得</button>
+                    </div>
+                    <small style="color: #6b7280;">バーコードから商品名を自動取得できます</small>
                 </div>
             </div>
             <div>
@@ -384,6 +461,31 @@
         <div id="noItems" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
             商品が登録されていません
         </div>
+
+        <!-- デバッグ情報パネル -->
+        <div style="position: fixed; bottom: 10px; right: 10px; z-index: 999;">
+            <button id="debugToggle" style="background: #374151; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 12px; cursor: pointer;">🐛</button>
+        </div>
+
+        <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
+            <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
+            <div id="debugInfo">
+                <div>バージョン: v3.0.0</div>
+                <div>更新日時: 2025.05.31</div>
+                <div>ブラウザ: <span id="browserInfo"></span></div>
+                <div>画面サイズ: <span id="screenInfo"></span></div>
+                <div>カメラ対応: <span id="cameraSupport"></span></div>
+                <div>QuaggaJS: <span id="quaggaStatus"></span></div>
+                <div>localStorage: <span id="storageStatus"></span></div>
+                <div>登録商品数: <span id="itemCount"></span></div>
+                <div>総在庫金額: <span id="totalValue"></span></div>
+                <div>履歴件数: <span id="historyCount2"></span></div>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
+                    <button onclick="exportDebugLog()" style="background: #3b82f6; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;">ログ出力</button>
+                    <button onclick="clearAllData()" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-left: 5px;">全削除</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- バーコードスキャナーモーダル -->
@@ -398,9 +500,21 @@
                 <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
                 <canvas id="scanCanvas" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
-                    <button class="btn btn-primary" onclick="startBarcodeScanner()">📷 バーコードスキャン開始</button>
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #6b7280; margin-bottom: 15px;">カメラを起動しています...</p>
+                        <div style="font-size: 14px; color: #9ca3af;">
+                            バーコードをカメラに向けてください
+                        </div>
+                    </div>
                 </div>
-                <div id="scanStatus" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
+                <div id="focusGuide" class="focus-guide hidden"></div>
+                <div id="tapToFocusHint" class="tap-to-focus-hint hidden">画面をタップしてフォーカス調整</div>
+                <div id="cameraControls" class="camera-controls hidden">
+                    <button class="control-btn" onclick="toggleFlashlight()" title="フラッシュライト">💡</button>
+                    <button class="control-btn" onclick="switchCamera()" title="カメラ切り替え">🔄</button>
+                    <button class="control-btn" onclick="manualFocus()" title="オートフォーカス">🎯</button>
+                </div>
+                <div id="scanStatus" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
                     スキャン中...
                 </div>
             </div>
@@ -438,6 +552,63 @@
         </div>
     </div>
 
+    <!-- 履歴表示モーダル -->
+    <div id="historyModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 class="modal-title">📊 入出庫履歴</h3>
+                <button class="close-btn" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <input type="text" id="historySearch" class="form-control" placeholder="商品名で検索..." style="flex: 1; min-width: 200px;">
+                    <select id="historyFilter" class="form-control" style="min-width: 120px;">
+                        <option value="all">全ての操作</option>
+                        <option value="in">入庫のみ</option>
+                        <option value="out">出庫のみ</option>
+                        <option value="adjustment">調整のみ</option>
+                    </select>
+                    <select id="historyPeriod" class="form-control" style="min-width: 120px;">
+                        <option value="all">全期間</option>
+                        <option value="today">今日</option>
+                        <option value="week">1週間</option>
+                        <option value="month">1ヶ月</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="clearHistory()" style="white-space: nowrap;">🗑️ 履歴削除</button>
+                    <button class="btn btn-primary" onclick="exportHistoryCSV()" style="white-space: nowrap;">📥 CSV出力</button>
+                </div>
+                
+                <div id="historyStats" style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+                    <span id="historyCount">総件数: 0件</span> | 
+                    <span id="historyInCount">入庫: 0件</span> | 
+                    <span id="historyOutCount">出庫: 0件</span>
+                </div>
+            </div>
+
+            <div id="historyList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #f9fafb; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">日にち</th>
+                            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">品名</th>
+                            <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">入庫/出庫</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">数量</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">単価</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">金額</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- 履歴データがここに表示される -->
+                    </tbody>
+                </table>
+                <div id="noHistory" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
+                    履歴がありません
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- QuaggaJS ライブラリ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 
@@ -448,16 +619,59 @@
         let cameraStream = null;
         let isScanning = false;
         let quaggaInitialized = false;
+        let currentCamera = 'environment'; // 'environment' or 'user'
+        let flashlightEnabled = false;
+        
+        // バーコードデータを一時保存する変数
+        let tempBarcodeData = null;
+        
+        // 履歴データを保存する変数
+        let transactionHistory = [];
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
+            loadTransactionHistory();
             renderItems();
             updateLowStockAlert();
+            initializeDebugPanel();
             
             // 検索機能
             document.getElementById('searchInput').addEventListener('input', function() {
                 renderItems();
+            });
+            
+            // 履歴検索・フィルタ機能
+            document.getElementById('historySearch').addEventListener('input', renderHistory);
+            document.getElementById('historyFilter').addEventListener('change', renderHistory);
+            document.getElementById('historyPeriod').addEventListener('change', renderHistory);
+            
+            // バーコード入力の監視
+            document.getElementById('barcodeInput').addEventListener('input', function() {
+                const barcode = this.value.trim();
+                if (barcode.length >= 8) {
+                    const existingItem = items.find(item => item.barcode === barcode);
+                    if (existingItem) {
+                        updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                    } else if (barcode.length >= 10) {
+                        updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
+                    } else {
+                        updateBarcodeStatus('');
+                    }
+                } else {
+                    updateBarcodeStatus('');
+                }
+            });
+
+            // デバッグトグル
+            document.getElementById('debugToggle').addEventListener('click', function() {
+                const panel = document.getElementById('debugPanel');
+                if (panel.classList.contains('hidden')) {
+                    panel.classList.remove('hidden');
+                    updateDebugInfo();
+                } else {
+                    panel.classList.add('hidden');
+                }
             });
         });
 
@@ -478,9 +692,9 @@
 
         function loadSampleData() {
             items = [
-                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, unit: 'パック', minStock: 2, location: '洗面所', barcode: '4901301234567' },
-                { id: 2, name: '醤油', category: '一般', quantity: 1, unit: '本', minStock: 1, location: 'キッチン', barcode: '4902102876543' },
-                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, unit: '個', minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
+                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, minStock: 2, location: '洗面所', barcode: '4901301234567' },
+                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, minStock: 1, location: 'キッチン', barcode: '4902102876543' },
+                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
             ];
         }
 
@@ -493,6 +707,54 @@
                 showTempDataWarning();
             }
             updateLowStockAlert();
+        }
+        
+        // 履歴データの読み込み
+        function loadTransactionHistory() {
+            try {
+                const savedHistory = localStorage.getItem('inventoryHistory');
+                if (savedHistory) {
+                    transactionHistory = JSON.parse(savedHistory);
+                } else {
+                    transactionHistory = [];
+                }
+            } catch (error) {
+                console.warn('履歴データの読み込みに失敗:', error);
+                transactionHistory = [];
+            }
+        }
+        
+        // 履歴データの保存
+        function saveTransactionHistory() {
+            try {
+                localStorage.setItem('inventoryHistory', JSON.stringify(transactionHistory));
+            } catch (error) {
+                console.warn('履歴データの保存に失敗:', error);
+            }
+        }
+        
+        // 履歴エントリの追加
+        function addTransactionHistory(itemId, itemName, operationType, quantity, previousQuantity, newQuantity, source = 'manual', barcode = '', note = '', price = 0) {
+            const historyEntry = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                itemId: itemId,
+                itemName: itemName,
+                operationType: operationType, // 'in', 'out', 'adjustment'
+                quantity: quantity,
+                previousQuantity: previousQuantity,
+                newQuantity: newQuantity,
+                price: price,
+                amount: quantity * price, // 金額計算
+                barcode: barcode,
+                source: source, // 'manual', 'barcode', 'button'
+                note: note
+            };
+            
+            transactionHistory.unshift(historyEntry); // 新しい履歴を先頭に追加
+            saveTransactionHistory();
+            
+            console.log('📝 履歴追加:', historyEntry);
         }
 
         function showTempDataWarning() {
@@ -522,7 +784,11 @@
             }
 
             noItems.classList.add('hidden');
-            container.innerHTML = filteredItems.map(item => `
+            container.innerHTML = filteredItems.map(item => {
+                const totalValue = (item.quantity * (item.price || 0)).toLocaleString();
+                const unitPrice = (item.price || 0).toLocaleString();
+                
+                return `
                 <div class="item-card ${item.quantity <= item.minStock ? 'low-stock' : ''}">
                     <div class="item-header">
                         <div class="item-title">${item.name}</div>
@@ -533,19 +799,22 @@
                     </div>
                     <div class="item-details">
                         <div>場所: ${item.location}</div>
-                        <div>最小在庫: ${item.minStock}${item.unit}</div>
+                        <div>最小在庫: ${item.minStock}</div>
+                        <div>単価: ¥${unitPrice}</div>
+                        <div>在庫金額: ¥${totalValue}</div>
                         ${item.barcode ? `<div>バーコード: ${item.barcode}</div>` : ''}
                     </div>
                     <div class="quantity-controls">
                         <div class="quantity-display">
                             <button class="quantity-btn quantity-minus" onclick="updateQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>−</button>
-                            <div class="quantity-text">${item.quantity}${item.unit}</div>
+                            <div class="quantity-text">${item.quantity}</div>
                             <button class="quantity-btn quantity-plus" onclick="updateQuantity(${item.id}, 1)">＋</button>
                         </div>
                         ${item.quantity <= item.minStock ? '<div class="low-stock-badge">在庫不足</div>' : ''}
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // 在庫不足アラート
@@ -558,66 +827,126 @@
                 alert.classList.remove('hidden');
                 alert.className = 'alert';
                 list.innerHTML = lowStockItems.map(item => 
-                    `<span style="background: #fbbf24; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${item.name} (残り${item.quantity}${item.unit})</span>`
+                    `<span style="background: #fbbf24; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${item.name} (残り${item.quantity})</span>`
                 ).join('');
             } else {
                 alert.classList.add('hidden');
             }
+            
+            // 在庫サマリーを更新
+            updateInventorySummary();
+        }
+        
+        // 在庫サマリー更新
+        function updateInventorySummary() {
+            const totalItems = items.length;
+            const totalValue = items.reduce((sum, item) => sum + (item.quantity * (item.price || 0)), 0);
+            
+            document.getElementById('totalItems').textContent = `商品数: ${totalItems}`;
+            document.getElementById('totalValue').textContent = `総在庫金額: ¥${totalValue.toLocaleString()}`;
         }
 
-        // 商品追加フォーム（バーコード・数量の引き継ぎ対応）
-        function openAddForm(barcode = '', quantity = '') {
+        // 商品追加フォーム（改善版）
+        function openAddForm(barcodeData = null) {
+            // 一時保存されたバーコードデータがあるかチェック
+            const effectiveBarcodeData = barcodeData || tempBarcodeData;
+            
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('formTitle').textContent = '新しい商品を追加';
             clearForm();
             editingItem = null;
             
-            // バーコード・数量がある場合は設定（緑色ハイライト）
-            if (barcode) {
-                const barcodeField = document.getElementById('itemBarcode');
-                barcodeField.value = barcode;
-                barcodeField.style.backgroundColor = '#dcfce7';
-                barcodeField.style.borderColor = '#10b981';
-                barcodeField.style.borderWidth = '2px';
-                console.log('✅ バーコード自動設定:', barcode);
+            // バーコードデータがある場合は自動設定
+            if (effectiveBarcodeData) {
+                console.log('📱 バーコードデータを新規登録フォームに設定:', effectiveBarcodeData);
+                applyBarcodeDataToForm(effectiveBarcodeData);
             }
-            if (quantity) {
-                const quantityField = document.getElementById('itemQuantity');
-                quantityField.value = quantity;
-                quantityField.style.backgroundColor = '#dcfce7';
-                console.log('✅ 数量自動設定:', quantity);
+            
+            // 商品名フィールドにフォーカス
+            setTimeout(() => {
+                const nameField = document.getElementById('itemName');
+                if (nameField) {
+                    nameField.focus();
+                }
+            }, 100);
+        }
+
+        // バーコードデータをフォームに適用
+        function applyBarcodeDataToForm(barcodeData) {
+            const barcodeField = document.getElementById('itemBarcode');
+            const quantityField = document.getElementById('itemQuantity');
+            const barcodeLabel = document.getElementById('barcodeAutoLabel');
+            
+            if (barcodeData.barcode) {
+                barcodeField.value = barcodeData.barcode;
+                barcodeField.classList.add('barcode-auto-filled');
+                barcodeField.title = 'バーコードスキャナーから自動入力されました';
+                barcodeLabel.classList.remove('hidden');
+                
+                console.log('✅ バーコード自動設定完了:', barcodeData.barcode);
+            }
+            
+            if (barcodeData.quantity) {
+                quantityField.value = barcodeData.quantity;
+                quantityField.style.backgroundColor = '#e0f2fe';
+                console.log('✅ 数量自動設定完了:', barcodeData.quantity);
+            }
+            
+            // 商品情報の自動取得を試行
+            if (barcodeData.barcode) {
+                setTimeout(() => {
+                    fetchProductInfo();
+                }, 500);
             }
         }
 
         function clearForm() {
             document.getElementById('itemName').value = '';
             document.getElementById('itemQuantity').value = '0';
-            document.getElementById('itemUnit').value = '';
+            document.getElementById('itemPrice').value = '0';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
             document.getElementById('itemBarcode').value = '';
             
             // スタイルリセット
-            const fields = ['itemBarcode', 'itemQuantity'];
-            fields.forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                if (field) {
-                    field.style.backgroundColor = '';
-                    field.style.borderColor = '';
-                    field.style.borderWidth = '';
-                }
-            });
+            const barcodeField = document.getElementById('itemBarcode');
+            const quantityField = document.getElementById('itemQuantity');
+            const barcodeLabel = document.getElementById('barcodeAutoLabel');
+            
+            if (barcodeField) {
+                barcodeField.classList.remove('barcode-auto-filled');
+                barcodeField.style.backgroundColor = '';
+                barcodeField.style.borderColor = '';
+                barcodeField.style.borderWidth = '';
+                barcodeField.style.fontWeight = '';
+                barcodeField.removeAttribute('readonly');
+                barcodeField.removeAttribute('title');
+            }
+            
+            if (quantityField) {
+                quantityField.style.backgroundColor = '';
+            }
+            
+            if (barcodeLabel) {
+                barcodeLabel.classList.add('hidden');
+            }
         }
 
         function cancelForm() {
             document.getElementById('addForm').classList.add('hidden');
             editingItem = null;
+            
+            // 一時保存データをクリア
+            if (tempBarcodeData) {
+                tempBarcodeData = null;
+                console.log('📝 フォームキャンセル: 一時バーコードデータをクリア');
+            }
         }
 
         function saveItem() {
             const name = document.getElementById('itemName').value.trim();
             const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
-            const unit = document.getElementById('itemUnit').value;
+            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
             const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
             const location = document.getElementById('itemLocation').value.trim();
             const barcode = document.getElementById('itemBarcode').value.trim();
@@ -630,18 +959,78 @@
             if (editingItem) {
                 // 編集
                 const index = items.findIndex(item => item.id === editingItem.id);
-                items[index] = { ...editingItem, name, category: '一般', quantity, unit, minStock, location, barcode };
+                const oldQuantity = items[index].quantity;
+                const oldPrice = items[index].price || 0;
+                items[index] = { ...editingItem, name, category: '一般', quantity, price, minStock, location, barcode };
+                
+                // 数量が変更された場合は履歴に記録
+                if (oldQuantity !== quantity) {
+                    const operationType = quantity > oldQuantity ? 'in' : 'out';
+                    addTransactionHistory(
+                        editingItem.id,
+                        name,
+                        'adjustment',
+                        Math.abs(quantity - oldQuantity),
+                        oldQuantity,
+                        quantity,
+                        'manual',
+                        barcode,
+                        `商品編集による数量調整（${oldQuantity} → ${quantity}）`,
+                        price
+                    );
+                }
+                
+                // 単価が変更された場合も履歴に記録
+                if (oldPrice !== price) {
+                    addTransactionHistory(
+                        editingItem.id,
+                        name,
+                        'adjustment',
+                        0,
+                        quantity,
+                        quantity,
+                        'manual',
+                        barcode,
+                        `単価変更（¥${oldPrice.toLocaleString()} → ¥${price.toLocaleString()}）`,
+                        price
+                    );
+                }
             } else {
                 // 新規追加
                 const newItem = {
                     id: Date.now(),
-                    name, category: '一般', quantity, unit, minStock, location, barcode
+                    name, category: '一般', quantity, price, minStock, location, barcode
                 };
                 items.push(newItem);
+                
+                // 新規登録を履歴に記録
+                if (quantity > 0) {
+                    addTransactionHistory(
+                        newItem.id,
+                        name,
+                        'in',
+                        quantity,
+                        0,
+                        quantity,
+                        tempBarcodeData ? 'barcode' : 'manual',
+                        barcode,
+                        '新商品登録',
+                        price
+                    );
+                }
+                
+                console.log('✅ 新商品を登録しました:', newItem);
             }
 
             saveItems();
             renderItems();
+            
+            // 一時保存データをクリア
+            if (tempBarcodeData) {
+                tempBarcodeData = null;
+                console.log('保存完了: 一時バーコードデータをクリア');
+            }
+            
             cancelForm();
         }
 
@@ -654,7 +1043,7 @@
             document.getElementById('formTitle').textContent = '商品を編集';
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemQuantity').value = item.quantity;
-            document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('itemPrice').value = item.price || 0;
             document.getElementById('itemMinStock').value = item.minStock;
             document.getElementById('itemLocation').value = item.location;
             document.getElementById('itemBarcode').value = item.barcode || '';
@@ -674,7 +1063,25 @@
         function updateQuantity(id, change) {
             const item = items.find(item => item.id === id);
             if (item) {
-                item.quantity = Math.max(0, item.quantity + change);
+                const previousQuantity = item.quantity;
+                const newQuantity = Math.max(0, item.quantity + change);
+                item.quantity = newQuantity;
+                
+                // 履歴に記録
+                const operationType = change > 0 ? 'in' : 'out';
+                addTransactionHistory(
+                    item.id, 
+                    item.name, 
+                    operationType, 
+                    Math.abs(change), 
+                    previousQuantity, 
+                    newQuantity, 
+                    'button', 
+                    item.barcode || '',
+                    `ボタンによる${operationType === 'in' ? '入庫' : '出庫'}`,
+                    item.price || 0
+                );
+                
                 saveItems();
                 renderItems();
             }
@@ -686,6 +1093,11 @@
             document.getElementById('barcodeInput').value = '';
             document.getElementById('barcodeQuantity').value = '1';
             updateBarcodeStatus('');
+            
+            // モーダルを開いたら即座にスキャンを開始
+            setTimeout(() => {
+                startAdvancedBarcodeScanner();
+            }, 500);
         }
 
         function closeBarcodeScanner() {
@@ -693,105 +1105,936 @@
             stopBarcodeScanner();
         }
 
-        // 再スキャン機能
-        function restartBarcodeScanning() {
-            document.getElementById('barcodeInput').value = '';
-            updateBarcodeStatus('🔄 再スキャンを準備中...', 'info');
-            stopBarcodeScanner();
-            setTimeout(() => {
-                startBarcodeScanner();
-            }, 500);
+        function startAdvancedBarcodeScanner() {
+            document.getElementById('cameraPlaceholder').classList.add('hidden');
+            document.getElementById('scanStatus').style.display = 'block';
+            document.getElementById('scanStatus').textContent = '高精度カメラを起動中...';
+            
+            // 高精度カメラ設定
+            const constraints = {
+                video: {
+                    facingMode: currentCamera,
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
+                    focusMode: 'continuous',
+                    focusDistance: { min: 0.1, max: Infinity },
+                    zoom: { min: 1, max: 3 }
+                }
+            };
+
+            // iOS Safari用の特別設定
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                constraints.video = {
+                    ...constraints.video,
+                    frameRate: { ideal: 30, max: 60 },
+                    aspectRatio: { ideal: 16/9 }
+                };
+            }
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    setupCamera(stream);
+                })
+                .catch(error => {
+                    console.error('高精度カメラアクセスエラー:', error);
+                    // フォールバック: 基本設定で再試行
+                    const basicConstraints = {
+                        video: {
+                            facingMode: currentCamera,
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    };
+                    
+                    navigator.mediaDevices.getUserMedia(basicConstraints)
+                        .then(stream => {
+                            setupCamera(stream);
+                        })
+                        .catch(fallbackError => {
+                            console.error('基本カメラアクセスエラー:', fallbackError);
+                            updateBarcodeStatus('❌ カメラにアクセスできません。設定を確認してください。', 'error');
+                            resetToManualMode();
+                        });
+                });
         }
 
-        function startBarcodeScanner() {
+        function setupCamera(stream) {
+            cameraStream = stream;
+            const video = document.getElementById('cameraVideo');
+            video.srcObject = stream;
+            video.classList.remove('hidden');
+            
+            // カメラコントロールを表示
+            document.getElementById('cameraControls').classList.remove('hidden');
+            document.getElementById('focusGuide').classList.remove('hidden');
+            document.getElementById('tapToFocusHint').classList.remove('hidden');
+            
+            // タップでフォーカス機能を追加
+            video.addEventListener('click', handleTapToFocus);
+            
+            // カメラの機能をチェック
+            const track = stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            
+            console.log('カメラ機能:', capabilities);
+            
+            // オートフォーカスを有効化（可能な場合）
+            if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                track.applyConstraints({
+                    advanced: [{ focusMode: 'continuous' }]
+                }).catch(e => console.log('オートフォーカス設定失敗:', e));
+            }
+            
+            // カメラが準備できたらQuaggaを初期化
+            video.addEventListener('loadedmetadata', () => {
+                setTimeout(() => {
+                    initializeAdvancedQuagga();
+                }, 1000);
+            });
+        }
+
+        function handleTapToFocus(event) {
+            const video = event.target;
+            const rect = video.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // フォーカスポイントを表示
+            showFocusPoint(x, y, video);
+            
+            // 実際のフォーカス調整を試行
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                
+                if (capabilities.focusMode) {
+                    track.applyConstraints({
+                        advanced: [{ 
+                            focusMode: 'single-shot',
+                            pointsOfInterest: [{ x: x / rect.width, y: y / rect.height }]
+                        }]
+                    }).then(() => {
+                        console.log('フォーカス調整完了');
+                        // 0.5秒後にcontinuousモードに戻す
+                        setTimeout(() => {
+                            track.applyConstraints({
+                                advanced: [{ focusMode: 'continuous' }]
+                            }).catch(e => console.log('連続フォーカス復帰失敗:', e));
+                        }, 500);
+                    }).catch(e => {
+                        console.log('手動フォーカス失敗:', e);
+                        // 代替案: ズームイン/アウトでフォーカス刺激
+                        attemptFocusRefresh();
+                    });
+                }
+            }
+        }
+
+        function showFocusPoint(x, y, container) {
+            // 既存のフォーカスポイントを削除
+            const existingPoint = container.querySelector('.focus-point');
+            if (existingPoint) {
+                existingPoint.remove();
+            }
+            
+            // 新しいフォーカスポイントを作成
+            const focusPoint = document.createElement('div');
+            focusPoint.className = 'focus-point';
+            focusPoint.style.cssText = `
+                position: absolute;
+                left: ${x - 25}px;
+                top: ${y - 25}px;
+                width: 50px;
+                height: 50px;
+                border: 2px solid #00ff00;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 100;
+                animation: focusAnimation 1s ease-out;
+            `;
+            
+            // アニメーション定義
+            if (!document.querySelector('#focusAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'focusAnimation';
+                style.textContent = `
+                    @keyframes focusAnimation {
+                        0% { transform: scale(1.5); opacity: 1; }
+                        100% { transform: scale(1); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            container.style.position = 'relative';
+            container.appendChild(focusPoint);
+            
+            // 1秒後に削除
+            setTimeout(() => {
+                if (focusPoint.parentNode) {
+                    focusPoint.remove();
+                }
+            }, 1000);
+        }
+
+        function attemptFocusRefresh() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const constraints = track.getConstraints();
+                
+                // 一時的にズームを変更してフォーカスを刺激
+                track.applyConstraints({
+                    ...constraints,
+                    advanced: [{ zoom: 1.1 }]
+                }).then(() => {
+                    setTimeout(() => {
+                        track.applyConstraints({
+                            ...constraints,
+                            advanced: [{ zoom: 1.0 }]
+                        }).catch(e => console.log('ズームリセット失敗:', e));
+                    }, 200);
+                }).catch(e => {
+                    console.log('フォーカス刺激失敗:', e);
+                });
+            }
+        }
+
+        function manualFocus() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                
+                // オートフォーカスを強制実行
+                track.applyConstraints({
+                    advanced: [{ focusMode: 'single-shot' }]
+                }).then(() => {
+                    updateBarcodeStatus('🎯 フォーカス調整中...', 'info');
+                    setTimeout(() => {
+                        track.applyConstraints({
+                            advanced: [{ focusMode: 'continuous' }]
+                        }).then(() => {
+                            updateBarcodeStatus('✅ フォーカス調整完了', 'success');
+                        }).catch(e => console.log('連続フォーカス復帰失敗:', e));
+                    }, 1000);
+                }).catch(e => {
+                    console.log('手動フォーカス失敗:', e);
+                    attemptFocusRefresh();
+                    updateBarcodeStatus('⚠️ フォーカス調整を試行中...', 'warning');
+                });
+            }
+        }
+
+        function switchCamera() {
+            currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+            stopBarcodeScanner();
+            startAdvancedBarcodeScanner();
+        }
+
+        function toggleFlashlight() {
+            if (cameraStream) {
+                const track = cameraStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                
+                if (capabilities.torch) {
+                    flashlightEnabled = !flashlightEnabled;
+                    track.applyConstraints({
+                        advanced: [{ torch: flashlightEnabled }]
+                    }).then(() => {
+                        updateBarcodeStatus(flashlightEnabled ? '💡 フラッシュON' : '💡 フラッシュOFF', 'info');
+                    }).catch(e => {
+                        console.log('フラッシュライト制御失敗:', e);
+                        updateBarcodeStatus('❌ フラッシュライト非対応', 'error');
+                    });
+                } else {
+                    updateBarcodeStatus('❌ フラッシュライト非対応', 'error');
+                }
+            }
+        }
+
+        function initializeAdvancedQuagga() {
             if (typeof Quagga === 'undefined') {
-                alert('バーコードライブラリが読み込まれていません。手動でバーコードを入力してください。');
-                startSimpleCamera();
+                console.log('Quagga not available, using manual input');
+                updateBarcodeStatus('🔍 高精度カメラは利用可能です。下記に手動でバーコードを入力してください。', 'info');
+                document.getElementById('scanStatus').textContent = '高精度カメラ起動完了 - 手動入力をご利用ください';
+                showManualInputHint();
                 return;
             }
 
+            document.getElementById('scanStatus').textContent = '高精度バーコード読み取り準備中...';
             isScanning = true;
-            document.getElementById('cameraPlaceholder').classList.add('hidden');
-            document.getElementById('cameraVideo').classList.remove('hidden');
-            document.getElementById('scanStatus').style.display = 'block';
 
+            // 高精度設定でQuaggaを初期化
             Quagga.init({
                 inputStream: {
                     name: "Live",
-                    type: "LiveStream",
+                    type: "LiveStream", 
                     target: document.querySelector('#cameraVideo'),
                     constraints: {
-                        width: 320,
-                        height: 240,
-                        facingMode: "environment"
+                        width: { min: 640, ideal: 1280, max: 1920 },
+                        height: { min: 480, ideal: 720, max: 1080 },
+                        facingMode: currentCamera,
+                        aspectRatio: { min: 1, max: 2.5 }
+                    },
+                    area: { // 読み取り領域を制限
+                        top: "20%",
+                        right: "20%", 
+                        left: "20%",
+                        bottom: "20%"
                     }
                 },
                 decoder: {
                     readers: [
-                        "code_128_reader",
-                        "ean_reader",
-                        "ean_8_reader",
-                        "code_39_reader",
-                        "upc_reader",
-                        "upc_e_reader"
-                    ]
+                        "ean_reader",       // EAN-13/EAN-8 (最も一般的) - 優先度最高
+                        "ean_8_reader",     // EAN-8
+                        "code_128_reader",  // Code-128
+                        "upc_reader",       // UPC-A
+                        "upc_e_reader",     // UPC-E
+                        "code_39_reader"    // Code-39
+                    ],
+                    multiple: false // 単一バーコードのみ
                 },
                 locate: true,
-                frequency: 10,
-                debug: {
-                    showCanvas: false,
-                    showPatches: false,
-                    showFoundPatches: false,
-                    showSkeleton: false,
-                    showLabels: false,
-                    showPatchLabels: false,
-                    showRemainingPatchLabels: false,
-                    boxFromPatches: {
-                        showTransformed: false,
-                        showTransformedBox: false,
-                        showBB: false
-                    }
-                },
+                frequency: 3,        // スキャン頻度（安定性重視）
+                numOfWorkers: 0,     // ワーカーを無効化（安定性重視）
                 locator: {
-                    halfSample: true,
-                    patchSize: "medium"
+                    halfSample: false,   // フル解像度使用
+                    patchSize: "large",  // 大きなパッチサイズ
+                    debug: {
+                        showCanvas: false,
+                        showPatches: false,
+                        showFoundPatches: false,
+                        showSkeleton: false,
+                        showLabels: false,
+                        showPatchLabels: false,
+                        showRemainingPatchLabels: false,
+                        boxFromPatches: {
+                            showTransformed: false,
+                            showTransformedBox: false,
+                            showBB: false
+                        }
+                    }
                 }
             }, function(err) {
                 if (err) {
-                    console.error('Quagga initialization error:', err);
-                    updateBarcodeStatus('カメラの初期化に失敗しました。手動で入力してください。', 'error');
-                    startSimpleCamera();
+                    console.error('高精度Quagga初期化エラー:', err);
+                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。カメラを確認しながら手動で入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = '高精度カメラプレビューのみ利用可能';
+                    showManualInputHint();
                     return;
                 }
                 
-                updateBarcodeStatus('バーコードをカメラに向けてください', 'scanning');
-                Quagga.start();
-                quaggaInitialized = true;
+                console.log('高精度Quagga初期化成功');
+                document.getElementById('scanStatus').textContent = 'バーコードをガイド枠内に合わせてください';
+                updateBarcodeStatus('📷 バーコードを中央のガイド枠に合わせてください（距離15-25cm）', 'scanning');
+                
+                try {
+                    Quagga.start();
+                    quaggaInitialized = true;
 
-                // バーコード検出時のコールバック
-                Quagga.onDetected(function(data) {
-                    const code = data.codeResult.code;
-                    console.log('Barcode detected:', code);
-                    
-                    // バーコードを入力欄に設定
-                    document.getElementById('barcodeInput').value = code;
-                    
-                    // 既存商品をチェック
-                    const existingItem = items.find(item => item.barcode === code);
-                    if (existingItem) {
-                        updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
-                        // ビープ音
-                        playBeep();
-                    } else {
-                        updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
-                    }
-                    
-                    // 短時間でスキャンを停止（連続読み取り防止）
-                    setTimeout(() => {
-                        stopBarcodeScanner();
-                    }, 1500);
-                });
+                    // バーコード検出時のコールバック - より厳格な検証
+                    Quagga.onDetected(function(data) {
+                        if (!isScanning) return; // 既に処理中の場合は無視
+
+                        const code = data.codeResult.code;
+                        const confidence = data.codeResult.startInfo ? (1 - data.codeResult.startInfo.error) : 0;
+                        const format = data.codeResult.format;
+                        
+                        console.log('バーコード検出:', {
+                            code: code,
+                            confidence: confidence,
+                            format: format,
+                            length: code.length
+                        });
+                        
+                        // より厳格な検証条件
+                        const isValidLength = code.length >= 8 && code.length <= 14;
+                        const isHighConfidence = confidence > 0.85;
+                        const isNumeric = /^\d+$/.test(code);
+                        
+                        if (isValidLength && isHighConfidence && isNumeric) {
+                            isScanning = false; // 重複検出を防ぐ
+                            
+                            document.getElementById('barcodeInput').value = code;
+                            
+                            // 既存商品をチェック
+                            const existingItem = items.find(item => item.barcode === code);
+                            if (existingItem) {
+                                updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                                playBeep(800, 0.3); // 成功音
+                            } else {
+                                updateBarcodeStatus(`📝 新商品検出: ${code} (${format})`, 'warning');
+                                playBeep(600, 0.2); // 警告音
+                            }
+                            
+                            // 読み取り成功エフェクト
+                            showSuccessEffect();
+                            
+                            // 自動で数量フィールドにフォーカス（使いやすさ向上）
+                            setTimeout(() => {
+                                const quantityField = document.getElementById('barcodeQuantity');
+                                if (quantityField) {
+                                    quantityField.focus();
+                                    quantityField.select(); // 既存の値を選択状態に
+                                }
+                            }, 500);
+                            
+                            // スキャンは停止（ユーザーが実行ボタンを押すまで待機）
+                            pauseScanning();
+                            
+                        } else {
+                            console.log('検証失敗:', {
+                                validLength: isValidLength,
+                                highConfidence: isHighConfidence,
+                                numeric: isNumeric,
+                                actualConfidence: confidence
+                            });
+                        }
+                    });
+
+                    // 定期的なフォーカス更新
+                    setInterval(() => {
+                        if (isScanning && quaggaInitialized) {
+                            attemptFocusRefresh();
+                        }
+                    }, 10000); // 10秒ごと
+
+                } catch (startError) {
+                    console.error('高精度Quagga開始エラー:', startError);
+                    updateBarcodeStatus('❌ バーコード読み取りの開始に失敗しました。手動で入力してください。', 'error');
+                    showManualInputHint();
+                }
             });
+            
+            // 20秒でタイムアウト（高精度なので時間延長）
+            setTimeout(() => {
+                if (isScanning && document.getElementById('scanStatus').textContent.includes('準備中')) {
+                    updateBarcodeStatus('⏱️ 自動読み取りが利用できません。下記に手動でバーコードを入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = '手動入力をご利用ください';
+                    showManualInputHint();
+                }
+            }, 20000);
+        }
+
+        function showSuccessEffect() {
+            const guide = document.getElementById('focusGuide');
+            guide.style.borderColor = '#10b981';
+            guide.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+            
+            setTimeout(() => {
+                guide.style.borderColor = '#3b82f6';
+                guide.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            }, 1500);
+        }
+
+        function showManualInputHint() {
+            // バーコード入力欄をハイライト
+            const barcodeInput = document.getElementById('barcodeInput');
+            barcodeInput.style.borderColor = '#3b82f6';
+            barcodeInput.style.borderWidth = '2px';
+            barcodeInput.placeholder = '例: 4973473130100';
+            barcodeInput.focus();
+        }
+
+        function playBeep(frequency = 800, duration = 0.3) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+        }
+
+        // デバッグ機能
+        function initializeDebugPanel() {
+            updateDebugInfo();
+        }
+
+        function updateDebugInfo() {
+            // ブラウザ情報
+            const userAgent = navigator.userAgent;
+            let browserName = 'Unknown';
+            if (userAgent.includes('Chrome')) browserName = 'Chrome';
+            else if (userAgent.includes('Firefox')) browserName = 'Firefox';
+            else if (userAgent.includes('Safari')) browserName = 'Safari';
+            else if (userAgent.includes('Edge')) browserName = 'Edge';
+            
+            document.getElementById('browserInfo').textContent = browserName;
+            
+            // 画面サイズ
+            document.getElementById('screenInfo').textContent = `${window.innerWidth}x${window.innerHeight}`;
+            
+            // カメラ対応
+            const cameraSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            document.getElementById('cameraSupport').textContent = cameraSupported ? '✅ 対応' : '❌ 非対応';
+            
+            // QuaggaJS状態
+            const quaggaLoaded = typeof Quagga !== 'undefined';
+            document.getElementById('quaggaStatus').textContent = quaggaLoaded ? '✅ 読み込み済み' : '❌ 未読み込み';
+            
+            // localStorage状態
+            let storageWorks = false;
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                storageWorks = true;
+            } catch (e) {
+                storageWorks = false;
+            }
+            document.getElementById('storageStatus').textContent = storageWorks ? '✅ 利用可能' : '❌ 利用不可';
+            
+            // 商品数
+            document.getElementById('itemCount').textContent = `${items.length}個`;
+            
+            // 総在庫金額
+            const totalValue = items.reduce((sum, item) => sum + (item.quantity * (item.price || 0)), 0);
+            document.getElementById('totalValue').textContent = `¥${totalValue.toLocaleString()}`;
+            
+            // 履歴件数
+            document.getElementById('historyCount2').textContent = `${transactionHistory.length}件`;
+        }
+
+        function exportDebugLog() {
+            const debugData = {
+                version: 'v3.0.0',
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                cameraSupported: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                quaggaLoaded: typeof Quagga !== 'undefined',
+                localStorageWorks: (() => {
+                    try {
+                        localStorage.setItem('test', 'test');
+                        localStorage.removeItem('test');
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                })(),
+                itemCount: items.length,
+                historyCount: transactionHistory.length,
+                items: items,
+                history: transactionHistory,
+                errors: [] // 今後エラーログを追加可能
+            };
+            
+            const jsonString = JSON.stringify(debugData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inventory-debug-${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            
+            alert('📄 デバッグログをダウンロードしました');
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ 全てのデータを削除しますか？この操作は取り消せません。')) {
+                if (confirm('🔥 本当に削除しますか？')) {
+                    try {
+                        localStorage.removeItem('householdInventory');
+                        localStorage.removeItem('inventoryHistory');
+                        items = [];
+                        transactionHistory = [];
+                        renderItems();
+                        updateLowStockAlert();
+                        updateDebugInfo();
+                        alert('🗑️ 全データを削除しました');
+                    } catch (error) {
+                        alert('❌ 削除に失敗しました: ' + error.message);
+                    }
+                }
+            }
+        }
+        
+        // 履歴モーダル機能
+        function openHistoryModal() {
+            document.getElementById('historyModal').classList.remove('hidden');
+            renderHistory();
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+        
+        // 履歴表示機能
+        function renderHistory() {
+            const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+            const filterType = document.getElementById('historyFilter').value;
+            const periodFilter = document.getElementById('historyPeriod').value;
+            
+            // フィルタ処理
+            let filteredHistory = transactionHistory.filter(entry => {
+                // 検索フィルタ
+                const matchesSearch = entry.itemName.toLowerCase().includes(searchTerm);
+                
+                // 操作種別フィルタ
+                const matchesType = filterType === 'all' || entry.operationType === filterType;
+                
+                // 期間フィルタ
+                let matchesPeriod = true;
+                if (periodFilter !== 'all') {
+                    const entryDate = new Date(entry.timestamp);
+                    const now = new Date();
+                    
+                    switch (periodFilter) {
+                        case 'today':
+                            matchesPeriod = entryDate.toDateString() === now.toDateString();
+                            break;
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= weekAgo;
+                            break;
+                        case 'month':
+                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= monthAgo;
+                            break;
+                    }
+                }
+                
+                return matchesSearch && matchesType && matchesPeriod;
+            });
+            
+            // 統計更新
+            updateHistoryStats(filteredHistory);
+            
+            const tableBody = document.getElementById('historyTableBody');
+            const noHistory = document.getElementById('noHistory');
+            
+            if (filteredHistory.length === 0) {
+                tableBody.innerHTML = '';
+                noHistory.classList.remove('hidden');
+                return;
+            }
+            
+            noHistory.classList.add('hidden');
+            
+            tableBody.innerHTML = filteredHistory.map(entry => {
+                const date = new Date(entry.timestamp);
+                const dateStr = date.toLocaleDateString('ja-JP', { 
+                    year: 'numeric',
+                    month: '2-digit', 
+                    day: '2-digit',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                let operationText = '';
+                let operationColor = '';
+                
+                if (entry.operationType === 'in') {
+                    operationText = '入庫';
+                    operationColor = '#10b981';
+                } else if (entry.operationType === 'out') {
+                    operationText = '出庫';
+                    operationColor = '#ef4444';
+                } else {
+                    operationText = '調整';
+                    operationColor = '#f59e0b';
+                }
+                
+                const price = entry.price || 0;
+                const amount = entry.amount || 0;
+                
+                return `
+                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 8px; font-size: 13px;">${dateStr}</td>
+                        <td style="padding: 8px; font-size: 14px; font-weight: 500;">${entry.itemName}</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span style="background: ${operationColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                ${operationText}
+                            </span>
+                        </td>
+                        <td style="padding: 8px; text-align: right; font-size: 14px; font-weight: 600;">${entry.quantity}</td>
+                        <td style="padding: 8px; text-align: right; font-size: 13px;">¥${price.toLocaleString()}</td>
+                        <td style="padding: 8px; text-align: right; font-size: 13px; font-weight: 600;">¥${amount.toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // 履歴統計更新
+        function updateHistoryStats(filteredHistory) {
+            const totalCount = filteredHistory.length;
+            const inCount = filteredHistory.filter(entry => entry.operationType === 'in').length;
+            const outCount = filteredHistory.filter(entry => entry.operationType === 'out').length;
+            
+            document.getElementById('historyCount').textContent = `総件数: ${totalCount}件`;
+            document.getElementById('historyInCount').textContent = `入庫: ${inCount}件`;
+            document.getElementById('historyOutCount').textContent = `出庫: ${outCount}件`;
+        }
+        
+        // 履歴削除機能
+        function clearHistory() {
+            if (confirm('⚠️ 全ての履歴を削除しますか？この操作は取り消せません。')) {
+                if (confirm('🔥 本当に削除しますか？')) {
+                    try {
+                        localStorage.removeItem('inventoryHistory');
+                        transactionHistory = [];
+                        renderHistory();
+                        alert('🗑️ 履歴を削除しました');
+                    } catch (error) {
+                        alert('❌ 履歴削除に失敗しました: ' + error.message);
+                    }
+                }
+            }
+        }
+        
+        // 履歴CSV出力機能
+        function exportHistoryCSV() {
+            const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+            const filterType = document.getElementById('historyFilter').value;
+            const periodFilter = document.getElementById('historyPeriod').value;
+            
+            // 現在のフィルタ条件に合致する履歴を取得
+            let filteredHistory = transactionHistory.filter(entry => {
+                const matchesSearch = entry.itemName.toLowerCase().includes(searchTerm);
+                const matchesType = filterType === 'all' || entry.operationType === filterType;
+                
+                let matchesPeriod = true;
+                if (periodFilter !== 'all') {
+                    const entryDate = new Date(entry.timestamp);
+                    const now = new Date();
+                    
+                    switch (periodFilter) {
+                        case 'today':
+                            matchesPeriod = entryDate.toDateString() === now.toDateString();
+                            break;
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= weekAgo;
+                            break;
+                        case 'month':
+                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= monthAgo;
+                            break;
+                    }
+                }
+                
+                return matchesSearch && matchesType && matchesPeriod;
+            });
+            
+            if (filteredHistory.length === 0) {
+                alert('📄 出力する履歴がありません');
+                return;
+            }
+            
+            // CSVヘッダー
+            let csvContent = '日にち,品名,入庫/出庫,数量,単価,金額\n';
+            
+            // CSVデータ
+            filteredHistory.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const dateStr = date.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const operationText = entry.operationType === 'in' ? '入庫' : 
+                                    entry.operationType === 'out' ? '出庫' : '調整';
+                
+                const price = entry.price || 0;
+                const amount = entry.amount || 0;
+                
+                // CSV形式で追加（カンマを含む項目は引用符で囲む）
+                csvContent += `"${dateStr}","${entry.itemName}","${operationText}","${entry.quantity}","${price}","${amount}"\n`;
+            });
+            
+            // BOMを追加してExcelで文字化けを防ぐ
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // ファイル名を生成（現在の日時を含む）
+            const now = new Date();
+            const filename = `入出庫履歴_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.csv`;
+            
+            // ダウンロード実行
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            
+            alert(`📥 履歴をCSVファイルで出力しました\nファイル名: ${filename}\n件数: ${filteredHistory.length}件`);
+        }
+
+        // 再スキャン機能
+        function restartBarcodeScanning() {
+            document.getElementById('barcodeInput').value = '';
+            document.getElementById('barcodeQuantity').value = '1';
+            updateBarcodeStatus('🔄 新しいバーコードをスキャンしてください', 'scanning');
+            
+            // スキャンが停止していたら再開
+            if (!isScanning) {
+                startAdvancedBarcodeScanner();
+            } else {
+                // すでにスキャン中の場合は一度停止してから再開
+                pauseScanning();
+                setTimeout(() => {
+                    startAdvancedBarcodeScanner();
+                }, 500);
+            }
+        }
+
+        // バーコードから商品情報を取得
+        async function fetchProductInfo() {
+            const barcode = document.getElementById('itemBarcode').value.trim();
+            const fetchBtn = document.getElementById('fetchProductBtn');
+            
+            if (!barcode) {
+                alert('バーコードを入力してください');
+                return;
+            }
+
+            if (barcode.length < 8 || barcode.length > 14 || !/^\d+$/.test(barcode)) {
+                alert('正しいバーコード（8-14桁の数字）を入力してください');
+                return;
+            }
+
+            fetchBtn.textContent = '取得中...';
+            fetchBtn.disabled = true;
+
+            try {
+                // 複数のAPIを順番に試行
+                let productInfo = null;
+                
+                // 1. Open Food Facts API (食品系)
+                try {
+                    productInfo = await fetchFromOpenFoodFacts(barcode);
+                    if (productInfo) {
+                        console.log('OpenFoodFacts APIから取得:', productInfo);
+                    }
+                } catch (error) {
+                    console.log('OpenFoodFacts API失敗:', error);
+                }
+
+                // 2. UPC Database API (無料、汎用)
+                if (!productInfo) {
+                    try {
+                        productInfo = await fetchFromUPCDatabase(barcode);
+                        if (productInfo) {
+                            console.log('UPC Database APIから取得:', productInfo);
+                        }
+                    } catch (error) {
+                        console.log('UPC Database API失敗:', error);
+                    }
+                }
+
+                if (productInfo) {
+                    // 商品情報を自動入力
+                    if (productInfo.name && !document.getElementById('itemName').value) {
+                        document.getElementById('itemName').value = productInfo.name;
+                    }
+
+                    updateBarcodeStatus(`✅ 商品情報を取得しました: ${productInfo.name}`, 'success');
+                    alert(`✅ 商品情報を取得しました！\n商品名: ${productInfo.name}`);
+                } else {
+                    updateBarcodeStatus('⚠️ 商品情報が見つかりませんでした', 'warning');
+                    alert('🔍 商品情報が見つかりませんでした。\n手動で商品名を入力してください。');
+                }
+
+            } catch (error) {
+                console.error('商品情報取得エラー:', error);
+                updateBarcodeStatus('❌ 商品情報の取得に失敗しました', 'error');
+                alert('❌ 商品情報の取得に失敗しました。\n手動で商品名を入力してください。');
+            } finally {
+                fetchBtn.textContent = '🔍 商品情報取得';
+                fetchBtn.disabled = false;
+            }
+        }
+
+        // Open Food Facts APIから商品情報を取得
+        async function fetchFromOpenFoodFacts(barcode) {
+            const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+            const data = await response.json();
+            
+            if (data.status === 1 && data.product) {
+                const product = data.product;
+                return {
+                    name: product.product_name || product.product_name_ja || product.product_name_en,
+                    brand: product.brands,
+                    unit: product.quantity || ''
+                };
+            }
+            return null;
+        }
+
+        // UPC Database APIから商品情報を取得（無料版）
+        async function fetchFromUPCDatabase(barcode) {
+            // 無料のUPC Database API - レート制限あり
+            const response = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`);
+            const data = await response.json();
+            
+            if (data.code === 'OK' && data.items && data.items.length > 0) {
+                const item = data.items[0];
+                return {
+                    name: item.title,
+                    brand: item.brand,
+                    unit: ''
+                };
+            }
+            return null;
+        }
+
+
+
+        // 定期的にデバッグ情報を更新
+        setInterval(() => {
+            if (!document.getElementById('debugPanel').classList.contains('hidden')) {
+                updateDebugInfo();
+            }
+        }, 5000);
+
+        function pauseScanning() {
+            if (quaggaInitialized && typeof Quagga !== 'undefined') {
+                try {
+                    Quagga.stop();
+                } catch (error) {
+                    console.log('Quagga stop error:', error);
+                }
+            }
+            document.getElementById('scanStatus').textContent = '読み取り完了';
+            isScanning = false;
+        }
+
+        function resetToManualMode() {
+            document.getElementById('cameraVideo').classList.add('hidden');
+            document.getElementById('cameraPlaceholder').classList.remove('hidden');
+            document.getElementById('scanStatus').style.display = 'none';
+            
+            // プレースホルダーのテキストを変更
+            document.getElementById('cameraPlaceholder').innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: #6b7280; margin-bottom: 15px;">カメラが利用できません</p>
+                    <button class="btn btn-primary" onclick="startBarcodeScanner()">🔄 再試行</button>
+                </div>
+            `;
         }
 
         function stopBarcodeScanner() {
@@ -867,10 +2110,6 @@
                         statusElement.style.backgroundColor = '#dbeafe';
                         statusElement.style.color = '#1e40af';
                         break;
-                    case 'info':
-                        statusElement.style.backgroundColor = '#f0f9ff';
-                        statusElement.style.color = '#0369a1';
-                        break;
                     default:
                         statusElement.style.color = '#6b7280';
                 }
@@ -901,6 +2140,7 @@
             }
         }
 
+        // バーコード取引実行（改善版）
         function executeBarcodeTransaction() {
             const barcode = document.getElementById('barcodeInput').value.trim();
             const quantity = parseInt(document.getElementById('barcodeQuantity').value);
@@ -914,29 +2154,67 @@
             const existingItem = items.find(item => item.barcode === barcode);
 
             if (existingItem) {
+                const previousQuantity = existingItem.quantity;
                 const change = operationType === 'in' ? quantity : -quantity;
                 const newQuantity = Math.max(0, existingItem.quantity + change);
                 existingItem.quantity = newQuantity;
                 
+                // 履歴に記録
+                addTransactionHistory(
+                    existingItem.id,
+                    existingItem.name,
+                    operationType,
+                    quantity,
+                    previousQuantity,
+                    newQuantity,
+                    'barcode',
+                    barcode,
+                    `バーコードスキャナーによる${operationType === 'in' ? '入庫' : '出庫'}`,
+                    existingItem.price || 0
+                );
+                
                 const action = operationType === 'in' ? '入庫' : '出庫';
-                alert(`✅ ${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
+                const amount = quantity * (existingItem.price || 0);
+                const amountText = amount > 0 ? `\n金額: ¥${amount.toLocaleString()}` : '';
+                alert(`✅ ${existingItem.name}を${quantity}個${action}しました。\n現在の在庫: ${newQuantity}個${amountText}`);
                 
                 saveItems();
                 renderItems();
+                
+                // フォームをリセットして次のスキャンの準備
                 document.getElementById('barcodeInput').value = '';
                 document.getElementById('barcodeQuantity').value = '1';
                 updateBarcodeStatus('処理完了！次のバーコードをスキャンできます。', 'success');
+                
+                // 3秒後に自動でスキャン再開（オプション）
+                setTimeout(() => {
+                    if (document.getElementById('barcodeModal').classList.contains('hidden') === false) {
+                        startBarcodeScanner();
+                    }
+                }, 3000);
+                
             } else {
                 if (operationType === 'out') {
                     alert('❌ 未登録の商品は出庫できません。先に商品を登録してください。');
                     return;
                 }
                 
-                // 新商品の場合 - 確実なバーコード引き継ぎ
-                console.log('🎯 新商品登録:', { barcode, quantity });
+                // 新商品の場合 - バーコードデータを保存して新規登録フォームを開く
+                tempBarcodeData = {
+                    barcode: barcode,
+                    quantity: quantity,
+                    source: 'scanner'
+                };
+                
+                console.log('📱 新商品検出、バーコードデータを保存:', tempBarcodeData);
+                
                 closeBarcodeScanner();
-                openAddForm(barcode, quantity); // 引数で確実に渡す
-                alert('📝 新しい商品です。商品情報を入力して登録してください。\nバーコードと数量は自動で入力されています。');
+                
+                // 少し待ってから新規登録フォームを開く（UI の安定性のため）
+                setTimeout(() => {
+                    openAddForm();
+                    alert(`📝 新しい商品です（バーコード: ${barcode}）\n商品情報を入力して登録してください。`);
+                }, 300);
             }
         }
     </script>

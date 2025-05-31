@@ -383,7 +383,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.4.1 - 2025.05.31 - バーコード引き継ぎ完全対応版
+                v2.5.0 - 2025.05.31 - バーコード引き継ぎ根本修正版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -462,7 +462,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.4.1</div>
+                <div>バージョン: v2.5.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -724,14 +724,21 @@
             document.getElementById('itemLocation').value = '';
             document.getElementById('itemBarcode').value = '';
             
-            // バーコードフィールドの特別スタイルをリセット
+            // スタイルリセット
             const barcodeField = document.getElementById('itemBarcode');
+            const quantityField = document.getElementById('itemQuantity');
+            
             if (barcodeField) {
                 barcodeField.style.backgroundColor = '';
                 barcodeField.style.borderColor = '';
                 barcodeField.style.borderWidth = '';
+                barcodeField.style.fontWeight = '';
                 barcodeField.removeAttribute('readonly');
                 barcodeField.removeAttribute('title');
+            }
+            
+            if (quantityField) {
+                quantityField.style.backgroundColor = '';
             }
         }
 
@@ -739,28 +746,7 @@
             document.getElementById('addForm').classList.add('hidden');
             editingItem = null;
             
-            // 全ての一時保存データをクリア
-            if (window.pendingBarcodeData) {
-                delete window.pendingBarcodeData;
-                console.log('pending バーコードデータをクリア');
-            }
-            if (window.tempBarcodeData) {
-                delete window.tempBarcodeData;
-                console.log('temp バーコードデータをクリア');
-            }
-            
-            // セッションストレージもクリア
-            try {
-                sessionStorage.removeItem('newItemBarcode');
-                sessionStorage.removeItem('newItemQuantity');
-            } catch (e) {
-                console.log('SessionStorage clear failed');
-            }
-            
-            // DOM属性もクリア
-            const modal = document.getElementById('barcodeModal');
-            modal.removeAttribute('data-pending-barcode');
-            modal.removeAttribute('data-pending-quantity');
+            console.log('📝 フォームをキャンセル');
         }
 
         function saveItem() {
@@ -1350,7 +1336,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.4.1',
+                version: 'v2.5.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

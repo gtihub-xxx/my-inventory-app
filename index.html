@@ -384,8 +384,12 @@
             
             <div class="camera-preview">
                 <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
+                <canvas id="scanCanvas" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
-                    <button class="btn btn-primary" onclick="startCamera()">📷 カメラ開始</button>
+                    <button class="btn btn-primary" onclick="startBarcodeScanner()">📷 バーコードスキャン開始</button>
+                </div>
+                <div id="scanStatus" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none;">
+                    スキャン中...
                 </div>
             </div>
 
@@ -402,13 +406,14 @@
 
             <div>
                 <label>バーコード</label>
-                <input type="text" id="barcodeInput" class="form-control" placeholder="バーコードを入力（8桁以上）">
+                <input type="text" id="barcodeInput" class="form-control" placeholder="自動読み取り中... または手動入力">
+                <div id="barcodeStatus" style="margin-top: 5px; font-size: 14px;"></div>
                 <small style="color: #6b7280;">一般的なバーコード: 8〜14桁の数字</small>
             </div>
 
             <div style="margin: 15px 0;">
                 <label>数量</label>
-                <input type="number" id="barcodeQuantity" class="form-control" placeholder="数量を入力">
+                <input type="number" id="barcodeQuantity" class="form-control" placeholder="数量を入力" value="1">
             </div>
 
             <div>
@@ -418,11 +423,16 @@
         </div>
     </div>
 
+    <!-- QuaggaJS ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+
     <script>
         // グローバル変数
         let items = [];
         let editingItem = null;
         let cameraStream = null;
+        let isScanning = false;
+        let quaggaInitialized = false;
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -637,15 +647,126 @@
         function openBarcodeScanner() {
             document.getElementById('barcodeModal').classList.remove('hidden');
             document.getElementById('barcodeInput').value = '';
-            document.getElementById('barcodeQuantity').value = '';
+            document.getElementById('barcodeQuantity').value = '1';
+            updateBarcodeStatus('');
         }
 
         function closeBarcodeScanner() {
             document.getElementById('barcodeModal').classList.add('hidden');
-            stopCamera();
+            stopBarcodeScanner();
         }
 
-        function startCamera() {
+        function startBarcodeScanner() {
+            if (typeof Quagga === 'undefined') {
+                alert('バーコードライブラリが読み込まれていません。手動でバーコードを入力してください。');
+                startSimpleCamera();
+                return;
+            }
+
+            isScanning = true;
+            document.getElementById('cameraPlaceholder').classList.add('hidden');
+            document.getElementById('cameraVideo').classList.remove('hidden');
+            document.getElementById('scanStatus').style.display = 'block';
+
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#cameraVideo'),
+                    constraints: {
+                        width: 320,
+                        height: 240,
+                        facingMode: "environment"
+                    }
+                },
+                decoder: {
+                    readers: [
+                        "code_128_reader",
+                        "ean_reader",
+                        "ean_8_reader",
+                        "code_39_reader",
+                        "upc_reader",
+                        "upc_e_reader"
+                    ]
+                },
+                locate: true,
+                frequency: 10,
+                debug: {
+                    showCanvas: false,
+                    showPatches: false,
+                    showFoundPatches: false,
+                    showSkeleton: false,
+                    showLabels: false,
+                    showPatchLabels: false,
+                    showRemainingPatchLabels: false,
+                    boxFromPatches: {
+                        showTransformed: false,
+                        showTransformedBox: false,
+                        showBB: false
+                    }
+                },
+                locator: {
+                    halfSample: true,
+                    patchSize: "medium"
+                }
+            }, function(err) {
+                if (err) {
+                    console.error('Quagga initialization error:', err);
+                    updateBarcodeStatus('カメラの初期化に失敗しました。手動で入力してください。', 'error');
+                    startSimpleCamera();
+                    return;
+                }
+                
+                updateBarcodeStatus('バーコードをカメラに向けてください', 'scanning');
+                Quagga.start();
+                quaggaInitialized = true;
+
+                // バーコード検出時のコールバック
+                Quagga.onDetected(function(data) {
+                    const code = data.codeResult.code;
+                    console.log('Barcode detected:', code);
+                    
+                    // バーコードを入力欄に設定
+                    document.getElementById('barcodeInput').value = code;
+                    
+                    // 既存商品をチェック
+                    const existingItem = items.find(item => item.barcode === code);
+                    if (existingItem) {
+                        updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                        // ビープ音
+                        playBeep();
+                    } else {
+                        updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
+                    }
+                    
+                    // 短時間でスキャンを停止（連続読み取り防止）
+                    setTimeout(() => {
+                        stopBarcodeScanner();
+                    }, 1500);
+                });
+            });
+        }
+
+        function stopBarcodeScanner() {
+            if (quaggaInitialized && typeof Quagga !== 'undefined') {
+                Quagga.stop();
+                Quagga.offDetected();
+                quaggaInitialized = false;
+            }
+            
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            isScanning = false;
+            document.getElementById('cameraVideo').classList.add('hidden');
+            document.getElementById('cameraPlaceholder').classList.remove('hidden');
+            document.getElementById('scanStatus').style.display = 'none';
+            updateBarcodeStatus('');
+        }
+
+        function startSimpleCamera() {
             navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: 'environment',
@@ -659,19 +780,73 @@
                 video.srcObject = stream;
                 video.classList.remove('hidden');
                 document.getElementById('cameraPlaceholder').classList.add('hidden');
+                updateBarcodeStatus('カメラが起動しました。手動でバーコードを入力してください。', 'info');
             })
             .catch(error => {
                 console.error('カメラエラー:', error);
-                alert('カメラにアクセスできませんでした。手動でバーコードを入力してください。');
+                updateBarcodeStatus('カメラにアクセスできませんでした。', 'error');
             });
         }
 
-        function stopCamera() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-                document.getElementById('cameraVideo').classList.add('hidden');
-                document.getElementById('cameraPlaceholder').classList.remove('hidden');
+        function updateBarcodeStatus(message, type = '') {
+            const statusElement = document.getElementById('barcodeStatus');
+            statusElement.textContent = message;
+            
+            // スタイルをリセット
+            statusElement.style.color = '';
+            statusElement.style.backgroundColor = '';
+            statusElement.style.padding = '';
+            statusElement.style.borderRadius = '';
+            
+            if (message) {
+                statusElement.style.padding = '8px 12px';
+                statusElement.style.borderRadius = '4px';
+                statusElement.style.marginTop = '8px';
+                
+                switch(type) {
+                    case 'success':
+                        statusElement.style.backgroundColor = '#d1fae5';
+                        statusElement.style.color = '#065f46';
+                        break;
+                    case 'error':
+                        statusElement.style.backgroundColor = '#fee2e2';
+                        statusElement.style.color = '#991b1b';
+                        break;
+                    case 'warning':
+                        statusElement.style.backgroundColor = '#fef3c7';
+                        statusElement.style.color = '#92400e';
+                        break;
+                    case 'scanning':
+                        statusElement.style.backgroundColor = '#dbeafe';
+                        statusElement.style.color = '#1e40af';
+                        break;
+                    default:
+                        statusElement.style.color = '#6b7280';
+                }
+            }
+        }
+
+        function playBeep() {
+            try {
+                // 簡単なビープ音
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (error) {
+                console.log('Audio not supported');
             }
         }
 

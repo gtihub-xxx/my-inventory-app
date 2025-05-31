@@ -444,6 +444,23 @@
             document.getElementById('searchInput').addEventListener('input', function() {
                 renderItems();
             });
+            
+            // バーコード入力の監視
+            document.getElementById('barcodeInput').addEventListener('input', function() {
+                const barcode = this.value.trim();
+                if (barcode.length >= 8) {
+                    const existingItem = items.find(item => item.barcode === barcode);
+                    if (existingItem) {
+                        updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                    } else if (barcode.length >= 10) {
+                        updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
+                    } else {
+                        updateBarcodeStatus('');
+                    }
+                } else {
+                    updateBarcodeStatus('');
+                }
+            });
         });
 
         // データの読み込み（localStorage対応版）
@@ -657,16 +674,52 @@
         }
 
         function startBarcodeScanner() {
+            // まずシンプルなカメラ起動を試す
+            document.getElementById('cameraPlaceholder').classList.add('hidden');
+            document.getElementById('scanStatus').style.display = 'block';
+            document.getElementById('scanStatus').textContent = 'カメラを起動しています...';
+            
+            // カメラのアクセス権限をチェック
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 320 },
+                    height: { ideal: 240 }
+                } 
+            })
+            .then(stream => {
+                cameraStream = stream;
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                
+                // カメラが正常に起動したらQuaggaを試す
+                setTimeout(() => {
+                    initializeQuagga();
+                }, 1000);
+            })
+            .catch(error => {
+                console.error('カメラアクセスエラー:', error);
+                document.getElementById('scanStatus').textContent = 'カメラにアクセスできません';
+                updateBarcodeStatus('❌ カメラアクセスが拒否されました。手動でバーコードを入力してください。', 'error');
+                
+                // 3秒後にカメラなしモードに切り替え
+                setTimeout(() => {
+                    resetToManualMode();
+                }, 3000);
+            });
+        }
+
+        function initializeQuagga() {
             if (typeof Quagga === 'undefined') {
-                alert('バーコードライブラリが読み込まれていません。手動でバーコードを入力してください。');
-                startSimpleCamera();
+                console.log('Quagga not available, using manual input');
+                updateBarcodeStatus('🔍 カメラプレビューは利用可能ですが、自動読み取りはできません。手動でバーコードを入力してください。', 'info');
+                document.getElementById('scanStatus').textContent = 'カメラ起動完了';
                 return;
             }
 
+            document.getElementById('scanStatus').textContent = 'バーコード読み取り準備中...';
             isScanning = true;
-            document.getElementById('cameraPlaceholder').classList.add('hidden');
-            document.getElementById('cameraVideo').classList.remove('hidden');
-            document.getElementById('scanStatus').style.display = 'block';
 
             Quagga.init({
                 inputStream: {
@@ -690,7 +743,8 @@
                     ]
                 },
                 locate: true,
-                frequency: 10,
+                frequency: 5, // 頻度を下げて負荷軽減
+                numOfWorkers: 0, // ワーカーを無効化
                 debug: {
                     showCanvas: false,
                     showPatches: false,
@@ -712,39 +766,83 @@
             }, function(err) {
                 if (err) {
                     console.error('Quagga initialization error:', err);
-                    updateBarcodeStatus('カメラの初期化に失敗しました。手動で入力してください。', 'error');
-                    startSimpleCamera();
+                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。カメラを確認しながら手動で入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = 'カメラプレビューのみ利用可能';
                     return;
                 }
                 
-                updateBarcodeStatus('バーコードをカメラに向けてください', 'scanning');
-                Quagga.start();
-                quaggaInitialized = true;
+                console.log('Quagga initialized successfully');
+                document.getElementById('scanStatus').textContent = 'バーコードをカメラに向けてください';
+                updateBarcodeStatus('📷 バーコードをカメラの中央に向けてください', 'scanning');
+                
+                try {
+                    Quagga.start();
+                    quaggaInitialized = true;
 
-                // バーコード検出時のコールバック
-                Quagga.onDetected(function(data) {
-                    const code = data.codeResult.code;
-                    console.log('Barcode detected:', code);
-                    
-                    // バーコードを入力欄に設定
-                    document.getElementById('barcodeInput').value = code;
-                    
-                    // 既存商品をチェック
-                    const existingItem = items.find(item => item.barcode === code);
-                    if (existingItem) {
-                        updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
-                        // ビープ音
-                        playBeep();
-                    } else {
-                        updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
-                    }
-                    
-                    // 短時間でスキャンを停止（連続読み取り防止）
-                    setTimeout(() => {
-                        stopBarcodeScanner();
-                    }, 1500);
-                });
+                    // バーコード検出時のコールバック
+                    Quagga.onDetected(function(data) {
+                        const code = data.codeResult.code;
+                        console.log('Barcode detected:', code);
+                        
+                        // 検出されたバーコードの信頼性をチェック
+                        if (data.codeResult.startInfo && data.codeResult.startInfo.error < 0.1) {
+                            // バーコードを入力欄に設定
+                            document.getElementById('barcodeInput').value = code;
+                            
+                            // 既存商品をチェック
+                            const existingItem = items.find(item => item.barcode === code);
+                            if (existingItem) {
+                                updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
+                                playBeep();
+                            } else {
+                                updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
+                            }
+                            
+                            // スキャンを停止
+                            setTimeout(() => {
+                                pauseScanning();
+                            }, 1500);
+                        }
+                    });
+                } catch (startError) {
+                    console.error('Quagga start error:', startError);
+                    updateBarcodeStatus('❌ バーコード読み取りの開始に失敗しました。手動で入力してください。', 'error');
+                }
             });
+            
+            // 10秒でタイムアウト
+            setTimeout(() => {
+                if (isScanning && document.getElementById('scanStatus').textContent.includes('準備中')) {
+                    updateBarcodeStatus('⏱️ 初期化がタイムアウトしました。手動でバーコードを入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = 'タイムアウト - 手動入力をご利用ください';
+                }
+            }, 10000);
+        }
+
+        function pauseScanning() {
+            if (quaggaInitialized && typeof Quagga !== 'undefined') {
+                try {
+                    Quagga.stop();
+                } catch (error) {
+                    console.log('Quagga stop error:', error);
+                }
+            }
+            document.getElementById('scanStatus').textContent = '読み取り完了';
+            isScanning = false;
+        }
+
+        function resetToManualMode() {
+            document.getElementById('cameraVideo').classList.add('hidden');
+            document.getElementById('cameraPlaceholder').classList.remove('hidden');
+            document.getElementById('scanStatus').style.display = 'none';
+            
+            // プレースホルダーのテキストを変更
+            document.getElementById('cameraPlaceholder').innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: #6b7280; margin-bottom: 15px;">カメラが利用できません</p>
+                    <button class="btn btn-primary" onclick="startBarcodeScanner()">🔄 再試行</button>
+                </div>
+            `;
         }
 
         function stopBarcodeScanner() {
@@ -868,15 +966,26 @@
                 existingItem.quantity = newQuantity;
                 
                 const action = operationType === 'in' ? '入庫' : '出庫';
-                alert(`${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
+                alert(`✅ ${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
                 
                 saveItems();
                 renderItems();
+                
+                // フォームをリセットして次のスキャンの準備
                 document.getElementById('barcodeInput').value = '';
-                document.getElementById('barcodeQuantity').value = '';
+                document.getElementById('barcodeQuantity').value = '1';
+                updateBarcodeStatus('処理完了！次のバーコードをスキャンできます。', 'success');
+                
+                // 3秒後に自動でスキャン再開（オプション）
+                setTimeout(() => {
+                    if (document.getElementById('barcodeModal').classList.contains('hidden') === false) {
+                        startBarcodeScanner();
+                    }
+                }, 3000);
+                
             } else {
                 if (operationType === 'out') {
-                    alert('未登録の商品は出庫できません。先に商品を登録してください。');
+                    alert('❌ 未登録の商品は出庫できません。先に商品を登録してください。');
                     return;
                 }
                 
@@ -885,7 +994,7 @@
                 document.getElementById('itemQuantity').value = quantity;
                 closeBarcodeScanner();
                 openAddForm();
-                alert('新しい商品です。商品情報を入力して登録してください。');
+                alert('📝 新しい商品です。商品情報を入力して登録してください。');
             }
         }
     </script>

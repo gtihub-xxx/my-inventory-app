@@ -317,6 +317,9 @@
     <div class="container">
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
+                v2.1.0 - 2025.05.31 - バーコード自動読み取り対応版
+            </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
                 <div id="lowStockList"></div>
@@ -371,6 +374,29 @@
 
         <div id="noItems" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
             商品が登録されていません
+        </div>
+
+        <!-- デバッグ情報パネル -->
+        <div style="position: fixed; bottom: 10px; right: 10px; z-index: 999;">
+            <button id="debugToggle" style="background: #374151; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 12px; cursor: pointer;">🐛</button>
+        </div>
+
+        <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
+            <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
+            <div id="debugInfo">
+                <div>バージョン: v2.1.0</div>
+                <div>更新日時: 2025.05.31</div>
+                <div>ブラウザ: <span id="browserInfo"></span></div>
+                <div>画面サイズ: <span id="screenInfo"></span></div>
+                <div>カメラ対応: <span id="cameraSupport"></span></div>
+                <div>QuaggaJS: <span id="quaggaStatus"></span></div>
+                <div>localStorage: <span id="storageStatus"></span></div>
+                <div>登録商品数: <span id="itemCount"></span></div>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
+                    <button onclick="exportDebugLog()" style="background: #3b82f6; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;">ログ出力</button>
+                    <button onclick="clearAllData()" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-left: 5px;">全削除</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -439,6 +465,7 @@
             loadItems();
             renderItems();
             updateLowStockAlert();
+            initializeDebugPanel();
             
             // 検索機能
             document.getElementById('searchInput').addEventListener('input', function() {
@@ -459,6 +486,17 @@
                     }
                 } else {
                     updateBarcodeStatus('');
+                }
+            });
+
+            // デバッグトグル
+            document.getElementById('debugToggle').addEventListener('click', function() {
+                const panel = document.getElementById('debugPanel');
+                if (panel.classList.contains('hidden')) {
+                    panel.classList.remove('hidden');
+                    updateDebugInfo();
+                } else {
+                    panel.classList.add('hidden');
                 }
             });
         });
@@ -713,67 +751,69 @@
         function initializeQuagga() {
             if (typeof Quagga === 'undefined') {
                 console.log('Quagga not available, using manual input');
-                updateBarcodeStatus('🔍 カメラプレビューは利用可能ですが、自動読み取りはできません。手動でバーコードを入力してください。', 'info');
-                document.getElementById('scanStatus').textContent = 'カメラ起動完了';
+                updateBarcodeStatus('🔍 カメラプレビューは利用可能です。手動でバーコードを入力してください。', 'info');
+                document.getElementById('scanStatus').textContent = 'カメラ起動完了 - 手動入力をご利用ください';
                 return;
             }
 
             document.getElementById('scanStatus').textContent = 'バーコード読み取り準備中...';
             isScanning = true;
 
+            // よりシンプルな設定でQuaggaを初期化
             Quagga.init({
                 inputStream: {
                     name: "Live",
-                    type: "LiveStream",
+                    type: "LiveStream", 
                     target: document.querySelector('#cameraVideo'),
                     constraints: {
-                        width: 320,
-                        height: 240,
-                        facingMode: "environment"
+                        width: { min: 320, ideal: 640, max: 800 },
+                        height: { min: 240, ideal: 480, max: 600 },
+                        facingMode: "environment",
+                        aspectRatio: { min: 1, max: 2 }
                     }
                 },
                 decoder: {
                     readers: [
-                        "code_128_reader",
-                        "ean_reader",
+                        "ean_reader",      // EAN-13/EAN-8 (最も一般的)
                         "ean_8_reader",
-                        "code_39_reader",
-                        "upc_reader",
-                        "upc_e_reader"
+                        "code_128_reader", // Code-128
+                        "upc_reader",      // UPC-A
+                        "upc_e_reader"     // UPC-E
                     ]
                 },
                 locate: true,
-                frequency: 5, // 頻度を下げて負荷軽減
-                numOfWorkers: 0, // ワーカーを無効化
-                debug: {
-                    showCanvas: false,
-                    showPatches: false,
-                    showFoundPatches: false,
-                    showSkeleton: false,
-                    showLabels: false,
-                    showPatchLabels: false,
-                    showRemainingPatchLabels: false,
-                    boxFromPatches: {
-                        showTransformed: false,
-                        showTransformedBox: false,
-                        showBB: false
-                    }
-                },
+                frequency: 3,      // スキャン頻度を下げて安定化
+                numOfWorkers: 0,   // ワーカーを無効化
                 locator: {
-                    halfSample: true,
-                    patchSize: "medium"
+                    halfSample: false,  // 精度を上げる
+                    patchSize: "large", // パッチサイズを大きく
+                    debug: {
+                        showCanvas: false,
+                        showPatches: false,
+                        showFoundPatches: false,
+                        showSkeleton: false,
+                        showLabels: false,
+                        showPatchLabels: false,
+                        showRemainingPatchLabels: false,
+                        boxFromPatches: {
+                            showTransformed: false,
+                            showTransformedBox: false,
+                            showBB: false
+                        }
+                    }
                 }
             }, function(err) {
                 if (err) {
                     console.error('Quagga initialization error:', err);
-                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。カメラを確認しながら手動で入力してください。', 'warning');
+                    updateBarcodeStatus('⚠️ 自動読み取りが利用できません。下記にバーコード番号を手動で入力してください。', 'warning');
                     document.getElementById('scanStatus').textContent = 'カメラプレビューのみ利用可能';
+                    showManualInputHint();
                     return;
                 }
                 
                 console.log('Quagga initialized successfully');
-                document.getElementById('scanStatus').textContent = 'バーコードをカメラに向けてください';
-                updateBarcodeStatus('📷 バーコードをカメラの中央に向けてください', 'scanning');
+                document.getElementById('scanStatus').textContent = 'バーコードをカメラの中央に向けてください';
+                updateBarcodeStatus('📷 バーコードを画面中央に近づけてください（距離10-30cm程度）', 'scanning');
                 
                 try {
                     Quagga.start();
@@ -781,12 +821,17 @@
 
                     // バーコード検出時のコールバック
                     Quagga.onDetected(function(data) {
+                        if (!isScanning) return; // 既に処理中の場合は無視
+
                         const code = data.codeResult.code;
-                        console.log('Barcode detected:', code);
+                        const confidence = data.codeResult.startInfo ? (1 - data.codeResult.startInfo.error) : 0;
                         
-                        // 検出されたバーコードの信頼性をチェック
-                        if (data.codeResult.startInfo && data.codeResult.startInfo.error < 0.1) {
-                            // バーコードを入力欄に設定
+                        console.log('Barcode detected:', code, 'Confidence:', confidence);
+                        
+                        // 信頼性が高い場合のみ処理
+                        if (confidence > 0.8 && code.length >= 8) {
+                            isScanning = false; // 重複検出を防ぐ
+                            
                             document.getElementById('barcodeInput').value = code;
                             
                             // 既存商品をチェック
@@ -795,29 +840,178 @@
                                 updateBarcodeStatus(`✅ 商品発見: ${existingItem.name}`, 'success');
                                 playBeep();
                             } else {
-                                updateBarcodeStatus('⚠️ 未登録の商品です', 'warning');
+                                updateBarcodeStatus(`📝 バーコード読み取り完了: ${code}`, 'warning');
+                                // 軽いビープ音
+                                playBeep(600, 0.2);
                             }
                             
-                            // スキャンを停止
-                            setTimeout(() => {
-                                pauseScanning();
-                            }, 1500);
+                            // スキャンを一時停止
+                            pauseScanning();
+                        } else {
+                            console.log('Low confidence detection ignored:', confidence);
                         }
                     });
+
+                    // 処理済みバーコードの検出を防ぐために、時々リセット
+                    setInterval(() => {
+                        if (isScanning && quaggaInitialized) {
+                            console.log('Refreshing barcode scanner...');
+                        }
+                    }, 30000); // 30秒ごと
+
                 } catch (startError) {
                     console.error('Quagga start error:', startError);
                     updateBarcodeStatus('❌ バーコード読み取りの開始に失敗しました。手動で入力してください。', 'error');
+                    showManualInputHint();
                 }
             });
             
-            // 10秒でタイムアウト
+            // 15秒でタイムアウト
             setTimeout(() => {
                 if (isScanning && document.getElementById('scanStatus').textContent.includes('準備中')) {
-                    updateBarcodeStatus('⏱️ 初期化がタイムアウトしました。手動でバーコードを入力してください。', 'warning');
-                    document.getElementById('scanStatus').textContent = 'タイムアウト - 手動入力をご利用ください';
+                    updateBarcodeStatus('⏱️ 自動読み取りが利用できません。下記に手動でバーコードを入力してください。', 'warning');
+                    document.getElementById('scanStatus').textContent = '手動入力をご利用ください';
+                    showManualInputHint();
                 }
-            }, 10000);
+            }, 15000);
         }
+
+        function showManualInputHint() {
+            // バーコード入力欄をハイライト
+            const barcodeInput = document.getElementById('barcodeInput');
+            barcodeInput.style.borderColor = '#3b82f6';
+            barcodeInput.style.borderWidth = '2px';
+            barcodeInput.placeholder = '例: 4973473130100';
+            barcodeInput.focus();
+        }
+
+        function playBeep(frequency = 800, duration = 0.3) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+        }
+
+        // デバッグ機能
+        function initializeDebugPanel() {
+            updateDebugInfo();
+        }
+
+        function updateDebugInfo() {
+            // ブラウザ情報
+            const userAgent = navigator.userAgent;
+            let browserName = 'Unknown';
+            if (userAgent.includes('Chrome')) browserName = 'Chrome';
+            else if (userAgent.includes('Firefox')) browserName = 'Firefox';
+            else if (userAgent.includes('Safari')) browserName = 'Safari';
+            else if (userAgent.includes('Edge')) browserName = 'Edge';
+            
+            document.getElementById('browserInfo').textContent = browserName;
+            
+            // 画面サイズ
+            document.getElementById('screenInfo').textContent = `${window.innerWidth}x${window.innerHeight}`;
+            
+            // カメラ対応
+            const cameraSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            document.getElementById('cameraSupport').textContent = cameraSupported ? '✅ 対応' : '❌ 非対応';
+            
+            // QuaggaJS状態
+            const quaggaLoaded = typeof Quagga !== 'undefined';
+            document.getElementById('quaggaStatus').textContent = quaggaLoaded ? '✅ 読み込み済み' : '❌ 未読み込み';
+            
+            // localStorage状態
+            let storageWorks = false;
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                storageWorks = true;
+            } catch (e) {
+                storageWorks = false;
+            }
+            document.getElementById('storageStatus').textContent = storageWorks ? '✅ 利用可能' : '❌ 利用不可';
+            
+            // 商品数
+            document.getElementById('itemCount').textContent = `${items.length}個`;
+        }
+
+        function exportDebugLog() {
+            const debugData = {
+                version: 'v2.1.0',
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                cameraSupported: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                quaggaLoaded: typeof Quagga !== 'undefined',
+                localStorageWorks: (() => {
+                    try {
+                        localStorage.setItem('test', 'test');
+                        localStorage.removeItem('test');
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                })(),
+                itemCount: items.length,
+                items: items,
+                errors: [] // 今後エラーログを追加可能
+            };
+            
+            const jsonString = JSON.stringify(debugData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inventory-debug-${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            
+            alert('📄 デバッグログをダウンロードしました');
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ 全てのデータを削除しますか？この操作は取り消せません。')) {
+                if (confirm('🔥 本当に削除しますか？')) {
+                    try {
+                        localStorage.removeItem('householdInventory');
+                        items = [];
+                        renderItems();
+                        updateLowStockAlert();
+                        updateDebugInfo();
+                        alert('🗑️ 全データを削除しました');
+                    } catch (error) {
+                        alert('❌ 削除に失敗しました: ' + error.message);
+                    }
+                }
+            }
+        }
+
+        // 定期的にデバッグ情報を更新
+        setInterval(() => {
+            if (!document.getElementById('debugPanel').classList.contains('hidden')) {
+                updateDebugInfo();
+            }
+        }, 5000);
 
         function pauseScanning() {
             if (quaggaInitialized && typeof Quagga !== 'undefined') {

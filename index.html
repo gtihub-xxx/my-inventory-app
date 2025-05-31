@@ -4,592 +4,715 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>在庫管理アプリ</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #3b82f6;
+            color: white;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .alert {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 8px;
+        }
+        
+        .controls {
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .form-section {
+            padding: 20px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-control {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .items-grid {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .item-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            background: white;
+        }
+        
+        .item-card.low-stock {
+            border-color: #f59e0b;
+            background: #fef3c7;
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .item-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .item-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-small {
+            padding: 5px 8px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .item-details {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        
+        .item-details div {
+            margin-bottom: 5px;
+        }
+        
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .quantity-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .quantity-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+        
+        .quantity-minus {
+            background: #ef4444;
+        }
+        
+        .quantity-plus {
+            background: #10b981;
+        }
+        
+        .quantity-text {
+            font-size: 18px;
+            font-weight: bold;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .low-stock-badge {
+            color: #dc2626;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .camera-preview {
+            width: 100%;
+            height: 200px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-placeholder {
+            color: #6b7280;
+            text-align: center;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const { Plus, Search, Edit2, Trash2, AlertTriangle, Package, Camera, Scan, X } = lucide;
+    <div class="container">
+        <div class="header">
+            <h1>📦 日常品在庫管理</h1>
+            <div id="lowStockAlert" class="hidden">
+                <strong>⚠️ 在庫不足のお知らせ</strong>
+                <div id="lowStockList"></div>
+            </div>
+        </div>
 
-        const InventoryApp = () => {
-          const [items, setItems] = useState([]);
-          const [searchTerm, setSearchTerm] = useState('');
-          const [showAddForm, setShowAddForm] = useState(false);
-          const [editingItem, setEditingItem] = useState(null);
-          const [newItem, setNewItem] = useState({
-            name: '',
-            category: '',
-            quantity: 0,
-            unit: '',
-            minStock: 1,
-            location: '',
-            barcode: ''
-          });
-          const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-          const [barcodeInput, setBarcodeInput] = useState('');
-          const [quantityInput, setQuantityInput] = useState('');
-          const [operationType, setOperationType] = useState('in');
-          const [isScanning, setIsScanning] = useState(false);
-          const [scannerError, setScannerError] = useState('');
-          const videoRef = useRef(null);
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-box" placeholder="商品名、カテゴリ、場所で検索...">
+            <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
+            <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
+        </div>
 
-          const categories = ['食材', '日用品', '洗剤・清掃用品', '薬・健康用品', '化粧品', 'その他'];
-          const units = ['個', '本', 'パック', 'kg', 'g', 'L', 'ml', '袋', '箱'];
+        <div id="addForm" class="form-section hidden">
+            <h3 id="formTitle">新しい商品を追加</h3>
+            <div class="form-grid">
+                <input type="text" id="itemName" class="form-control" placeholder="商品名">
+                <select id="itemCategory" class="form-control">
+                    <option value="">カテゴリを選択</option>
+                    <option value="食材">食材</option>
+                    <option value="日用品">日用品</option>
+                    <option value="洗剤・清掃用品">洗剤・清掃用品</option>
+                    <option value="薬・健康用品">薬・健康用品</option>
+                    <option value="化粧品">化粧品</option>
+                    <option value="その他">その他</option>
+                </select>
+                <input type="number" id="itemQuantity" class="form-control" placeholder="数量">
+                <select id="itemUnit" class="form-control">
+                    <option value="">単位を選択</option>
+                    <option value="個">個</option>
+                    <option value="本">本</option>
+                    <option value="パック">パック</option>
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="L">L</option>
+                    <option value="ml">ml</option>
+                    <option value="袋">袋</option>
+                    <option value="箱">箱</option>
+                </select>
+                <input type="number" id="itemMinStock" class="form-control" placeholder="最小在庫数" value="1">
+                <input type="text" id="itemLocation" class="form-control" placeholder="保管場所">
+                <input type="text" id="itemBarcode" class="form-control" placeholder="バーコード (任意)">
+            </div>
+            <div>
+                <button class="btn btn-primary" onclick="saveItem()">保存</button>
+                <button class="btn btn-secondary" onclick="cancelForm()">キャンセル</button>
+            </div>
+        </div>
 
-          useEffect(() => {
-            if (showBarcodeScanner) {
-              setScannerError('');
+        <div id="itemsGrid" class="items-grid">
+            <!-- 商品カードがここに表示される -->
+        </div>
+
+        <div id="noItems" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
+            商品が登録されていません
+        </div>
+    </div>
+
+    <!-- バーコードスキャナーモーダル -->
+    <div id="barcodeModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">バーコード入出庫</h3>
+                <button class="close-btn" onclick="closeBarcodeScanner()">&times;</button>
+            </div>
+            
+            <div class="camera-preview">
+                <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
+                <div id="cameraPlaceholder" class="camera-placeholder">
+                    <button class="btn btn-primary" onclick="startCamera()">📷 カメラ開始</button>
+                </div>
+            </div>
+
+            <div class="radio-group">
+                <label>
+                    <input type="radio" name="operationType" value="in" checked>
+                    入庫
+                </label>
+                <label>
+                    <input type="radio" name="operationType" value="out">
+                    出庫
+                </label>
+            </div>
+
+            <div>
+                <label>バーコード</label>
+                <input type="text" id="barcodeInput" class="form-control" placeholder="バーコードを入力（8桁以上）">
+                <small style="color: #6b7280;">一般的なバーコード: 8〜14桁の数字</small>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <label>数量</label>
+                <input type="number" id="barcodeQuantity" class="form-control" placeholder="数量を入力">
+            </div>
+
+            <div>
+                <button class="btn btn-success" onclick="executeBarcodeTransaction()">実行</button>
+                <button class="btn btn-secondary" onclick="closeBarcodeScanner()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let items = [];
+        let editingItem = null;
+        let cameraStream = null;
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadItems();
+            renderItems();
+            updateLowStockAlert();
+            
+            // 検索機能
+            document.getElementById('searchInput').addEventListener('input', function() {
+                renderItems();
+            });
+        });
+
+        // データの読み込み（localStorage対応版）
+        function loadItems() {
+            try {
+                const savedItems = localStorage.getItem('householdInventory');
+                if (savedItems) {
+                    items = JSON.parse(savedItems);
+                } else {
+                    loadSampleData();
+                }
+            } catch (error) {
+                console.warn('localStorage not available, using memory storage:', error);
+                loadSampleData();
             }
-          }, [showBarcodeScanner]);
+        }
 
-          useEffect(() => {
-            const savedItems = localStorage.getItem('householdInventory');
-            if (savedItems) {
-              setItems(JSON.parse(savedItems));
-            } else {
-              const sampleItems = [
+        function loadSampleData() {
+            items = [
                 { id: 1, name: 'トイレットペーパー', category: '日用品', quantity: 5, unit: 'パック', minStock: 2, location: '洗面所', barcode: '4901301234567' },
                 { id: 2, name: '醤油', category: '食材', quantity: 1, unit: '本', minStock: 1, location: 'キッチン', barcode: '4902102876543' },
                 { id: 3, name: '洗濯洗剤', category: '洗剤・清掃用品', quantity: 0, unit: '個', minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
-              ];
-              setItems(sampleItems);
-            }
-          }, []);
+            ];
+        }
 
-          useEffect(() => {
-            localStorage.setItem('householdInventory', JSON.stringify(items));
-          }, [items]);
-
-          const startSimpleCamera = async () => {
+        // データの保存（localStorage対応版）
+        function saveItems() {
             try {
-              const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                  facingMode: 'environment',
-                  width: { ideal: 320 },
-                  height: { ideal: 240 }
-                } 
-              });
-              
-              if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                setIsScanning(true);
-                setScannerError('');
-              }
+                localStorage.setItem('householdInventory', JSON.stringify(items));
             } catch (error) {
-              console.error('カメラアクセスエラー:', error);
-              setScannerError('カメラにアクセスできませんでした。手動でバーコードを入力してください。');
+                console.warn('localStorage not available, data will not persist:', error);
+                showTempDataWarning();
             }
-          };
+            updateLowStockAlert();
+        }
 
-          const stopSimpleCamera = () => {
-            if (videoRef.current && videoRef.current.srcObject) {
-              const tracks = videoRef.current.srcObject.getTracks();
-              tracks.forEach(track => track.stop());
-              videoRef.current.srcObject = null;
+        function showTempDataWarning() {
+            if (!document.querySelector('.temp-warning')) {
+                const warning = document.createElement('div');
+                warning.className = 'alert temp-warning';
+                warning.innerHTML = '⚠️ 注意: データは一時的にのみ保存されます。正しいGitHub PagesのURLからアクセスしてください。';
+                document.querySelector('.header').appendChild(warning);
             }
-            setIsScanning(false);
-          };
+        }
 
-          const openBarcodeScanner = () => {
-            setShowBarcodeScanner(true);
-            setBarcodeInput('');
-            setQuantityInput('');
-            setScannerError('');
-            setIsScanning(false);
-          };
+        // 商品の表示
+        function renderItems() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filteredItems = items.filter(item =>
+                item.name.toLowerCase().includes(searchTerm) ||
+                item.category.toLowerCase().includes(searchTerm) ||
+                item.location.toLowerCase().includes(searchTerm)
+            );
 
-          const closeBarcodeScanner = () => {
-            setShowBarcodeScanner(false);
-            stopSimpleCamera();
-            setScannerError('');
-          };
+            const container = document.getElementById('itemsGrid');
+            const noItems = document.getElementById('noItems');
 
-          const handleBarcodeInputChange = (value) => {
-            setBarcodeInput(value);
-            
-            if (value.length >= 8) {
-              const item = findItemByBarcode(value);
-              if (item) {
-                if (!quantityInput) {
-                  setQuantityInput('1');
-                }
-              }
-            }
-          };
-
-          const findItemByBarcode = (barcode) => {
-            return items.find(item => item.barcode === barcode);
-          };
-
-          const handleBarcodeTransaction = () => {
-            if (!barcodeInput.trim() || !quantityInput.trim()) {
-              alert('バーコードと数量を入力してください。');
-              return;
-            }
-
-            const quantity = parseInt(quantityInput);
-            if (quantity <= 0) {
-              alert('正しい数量を入力してください。');
-              return;
-            }
-
-            const existingItem = findItemByBarcode(barcodeInput);
-            
-            if (existingItem) {
-              const change = operationType === 'in' ? quantity : -quantity;
-              const newQuantity = Math.max(0, existingItem.quantity + change);
-              
-              setItems(items.map(item => 
-                item.id === existingItem.id 
-                  ? { ...item, quantity: newQuantity }
-                  : item
-              ));
-              
-              const action = operationType === 'in' ? '入庫' : '出庫';
-              alert(`${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
-              
-              setBarcodeInput('');
-              setQuantityInput('');
-            } else {
-              if (operationType === 'out') {
-                alert('未登録の商品は出庫できません。先に商品を登録してください。');
+            if (filteredItems.length === 0) {
+                container.innerHTML = '';
+                noItems.classList.remove('hidden');
                 return;
-              }
-              
-              setNewItem({
-                name: '',
-                category: '',
-                quantity: quantity,
-                unit: '',
-                minStock: 1,
-                location: '',
-                barcode: barcodeInput
-              });
-              setShowAddForm(true);
-              closeBarcodeScanner();
-              alert('新しい商品です。商品情報を入力して登録してください。');
-              return;
             }
-          };
 
-          const handleAddItem = () => {
-            if (newItem.name.trim()) {
-              const item = {
-                id: Date.now(),
-                ...newItem,
-                quantity: parseInt(newItem.quantity) || 0,
-                minStock: parseInt(newItem.minStock) || 1
-              };
-              setItems([...items, item]);
-              setNewItem({ name: '', category: '', quantity: 0, unit: '', minStock: 1, location: '', barcode: '' });
-              setShowAddForm(false);
-            }
-          };
-
-          const handleEditItem = (item) => {
-            setEditingItem(item);
-            setNewItem(item);
-            setShowAddForm(true);
-          };
-
-          const handleUpdateItem = () => {
-            if (newItem.name.trim()) {
-              setItems(items.map(item => 
-                item.id === editingItem.id 
-                  ? { ...newItem, quantity: parseInt(newItem.quantity) || 0, minStock: parseInt(newItem.minStock) || 1 }
-                  : item
-              ));
-              setEditingItem(null);
-              setNewItem({ name: '', category: '', quantity: 0, unit: '', minStock: 1, location: '', barcode: '' });
-              setShowAddForm(false);
-            }
-          };
-
-          const handleDeleteItem = (id) => {
-            setItems(items.filter(item => item.id !== id));
-          };
-
-          const updateQuantity = (id, change) => {
-            setItems(items.map(item => 
-              item.id === id 
-                ? { ...item, quantity: Math.max(0, item.quantity + change) }
-                : item
-            ));
-          };
-
-          const cancelForm = () => {
-            setShowAddForm(false);
-            setEditingItem(null);
-            setNewItem({ name: '', category: '', quantity: 0, unit: '', minStock: 1, location: '', barcode: '' });
-          };
-
-          const filteredItems = items.filter(item =>
-            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.location.toLowerCase().includes(searchTerm.toLowerCase())
-          );
-
-          const lowStockItems = items.filter(item => item.quantity <= item.minStock);
-
-          return (
-            <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
-              <div className="bg-white rounded-lg shadow-lg">
-                <div className="p-6 border-b border-gray-200">
-                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <Package className="text-blue-600" />
-                    日常品在庫管理
-                  </h1>
-                  
-                  {lowStockItems.length > 0 && (
-                    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-orange-800">
-                        <AlertTriangle size={20} />
-                        <span className="font-semibold">在庫不足のお知らせ</span>
-                      </div>
-                      <div className="mt-2 text-sm text-orange-700">
-                        {lowStockItems.map(item => (
-                          <span key={item.id} className="inline-block bg-orange-100 px-2 py-1 rounded mr-2 mb-1">
-                            {item.name} (残り{item.quantity}{item.unit})
-                          </span>
-                        ))}
-                      </div>
+            noItems.classList.add('hidden');
+            container.innerHTML = filteredItems.map(item => `
+                <div class="item-card ${item.quantity <= item.minStock ? 'low-stock' : ''}">
+                    <div class="item-header">
+                        <div class="item-title">${item.name}</div>
+                        <div class="item-actions">
+                            <button class="btn-small btn-primary" onclick="editItem(${item.id})">✏️</button>
+                            <button class="btn-small btn-danger" onclick="deleteItem(${item.id})">🗑️</button>
+                        </div>
                     </div>
-                  )}
+                    <div class="item-details">
+                        <div>カテゴリ: ${item.category}</div>
+                        <div>場所: ${item.location}</div>
+                        <div>最小在庫: ${item.minStock}${item.unit}</div>
+                        ${item.barcode ? `<div>バーコード: ${item.barcode}</div>` : ''}
+                    </div>
+                    <div class="quantity-controls">
+                        <div class="quantity-display">
+                            <button class="quantity-btn quantity-minus" onclick="updateQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>−</button>
+                            <div class="quantity-text">${item.quantity}${item.unit}</div>
+                            <button class="quantity-btn quantity-plus" onclick="updateQuantity(${item.id}, 1)">＋</button>
+                        </div>
+                        ${item.quantity <= item.minStock ? '<div class="low-stock-badge">在庫不足</div>' : ''}
+                    </div>
                 </div>
+            `).join('');
+        }
 
-                <div className="p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                      <input
-                        type="text"
-                        placeholder="商品名、カテゴリ、場所で検索..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      onClick={openBarcodeScanner}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <Scan size={20} />
-                      バーコード入出庫
-                    </button>
-                    <button
-                      onClick={() => setShowAddForm(true)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <Plus size={20} />
-                      商品を追加
-                    </button>
-                  </div>
+        // 在庫不足アラート
+        function updateLowStockAlert() {
+            const lowStockItems = items.filter(item => item.quantity <= item.minStock);
+            const alert = document.getElementById('lowStockAlert');
+            const list = document.getElementById('lowStockList');
 
-                  {showAddForm && (
-                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h3 className="text-lg font-semibold mb-4">
-                        {editingItem ? '商品を編集' : '新しい商品を追加'}
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <input
-                          type="text"
-                          placeholder="商品名"
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.name}
-                          onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                        />
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.category}
-                          onChange={(e) => setNewItem({...newItem, category: e.target.value})}
-                        >
-                          <option value="">カテゴリを選択</option>
-                          {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="数量"
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.quantity}
-                          onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
-                        />
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.unit}
-                          onChange={(e) => setNewItem({...newItem, unit: e.target.value})}
-                        >
-                          <option value="">単位を選択</option>
-                          {units.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="最小在庫数"
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.minStock}
-                          onChange={(e) => setNewItem({...newItem, minStock: e.target.value})}
-                        />
-                        <input
-                          type="text"
-                          placeholder="保管場所"
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.location}
-                          onChange={(e) => setNewItem({...newItem, location: e.target.value})}
-                        />
-                        <input
-                          type="text"
-                          placeholder="バーコード (任意)"
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={newItem.barcode}
-                          onChange={(e) => setNewItem({...newItem, barcode: e.target.value})}
-                        />
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={editingItem ? handleUpdateItem : handleAddItem}
-                          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                        >
-                          {editingItem ? '更新' : '追加'}
-                        </button>
-                        <button
-                          onClick={cancelForm}
-                          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                        >
-                          キャンセル
-                        </button>
-                      </div>
-                    </div>
-                  )}
+            if (lowStockItems.length > 0) {
+                alert.classList.remove('hidden');
+                alert.className = 'alert';
+                list.innerHTML = lowStockItems.map(item => 
+                    `<span style="background: #fbbf24; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${item.name} (残り${item.quantity}${item.unit})</span>`
+                ).join('');
+            } else {
+                alert.classList.add('hidden');
+            }
+        }
 
-                  {showBarcodeScanner && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-semibold">バーコード入出庫</h3>
-                          <button
-                            onClick={closeBarcodeScanner}
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            <X size={24} />
-                          </button>
-                        </div>
+        // 商品追加フォーム
+        function openAddForm() {
+            document.getElementById('addForm').classList.remove('hidden');
+            document.getElementById('formTitle').textContent = '新しい商品を追加';
+            clearForm();
+            editingItem = null;
+        }
 
-                        <div className="mb-4">
-                          <div className="w-full h-48 bg-gray-200 rounded-lg relative overflow-hidden">
-                            <video
-                              ref={videoRef}
-                              autoPlay
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                            {!isScanning && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <button
-                                  onClick={startSimpleCamera}
-                                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                                >
-                                  <Camera size={20} />
-                                  カメラ開始
-                                </button>
-                              </div>
-                            )}
-                            {isScanning && (
-                              <div className="absolute top-2 right-2">
-                                <button
-                                  onClick={stopSimpleCamera}
-                                  className="bg-red-600 text-white px-2 py-1 rounded text-sm"
-                                >
-                                  停止
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {scannerError && (
-                            <div className="text-sm text-red-600 mt-2 p-2 bg-red-50 rounded">
-                              {scannerError}
-                            </div>
-                          )}
-                          
-                          <p className="text-sm text-gray-600 mt-2 text-center">
-                            {isScanning 
-                              ? 'バーコードを確認しながら下記に入力してください' 
-                              : 'カメラでバーコードを確認するか、下記に直接入力してください'
-                            }
-                          </p>
-                        </div>
+        function clearForm() {
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemCategory').value = '';
+            document.getElementById('itemQuantity').value = '';
+            document.getElementById('itemUnit').value = '';
+            document.getElementById('itemMinStock').value = '1';
+            document.getElementById('itemLocation').value = '';
+            document.getElementById('itemBarcode').value = '';
+        }
 
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">操作タイプ</label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="operationType"
-                                value="in"
-                                checked={operationType === 'in'}
-                                onChange={(e) => setOperationType(e.target.value)}
-                                className="mr-2"
-                              />
-                              入庫
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="operationType"
-                                value="out"
-                                checked={operationType === 'out'}
-                                onChange={(e) => setOperationType(e.target.value)}
-                                className="mr-2"
-                              />
-                              出庫
-                            </label>
-                          </div>
-                        </div>
+        function cancelForm() {
+            document.getElementById('addForm').classList.add('hidden');
+            editingItem = null;
+        }
 
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            バーコード
-                            {barcodeInput && findItemByBarcode(barcodeInput) && (
-                              <span className="text-green-600 ml-2">
-                                ✓ {findItemByBarcode(barcodeInput).name}
-                              </span>
-                            )}
-                            {barcodeInput && !findItemByBarcode(barcodeInput) && barcodeInput.length >= 8 && (
-                              <span className="text-orange-600 ml-2">⚠ 未登録商品</span>
-                            )}
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="バーコードを入力（8桁以上）"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            value={barcodeInput}
-                            onChange={(e) => handleBarcodeInputChange(e.target.value)}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            一般的なバーコード: 8〜14桁の数字
-                          </p>
-                        </div>
+        function saveItem() {
+            const name = document.getElementById('itemName').value.trim();
+            const category = document.getElementById('itemCategory').value;
+            const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
+            const unit = document.getElementById('itemUnit').value;
+            const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
+            const location = document.getElementById('itemLocation').value.trim();
+            const barcode = document.getElementById('itemBarcode').value.trim();
 
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">数量</label>
-                          <input
-                            type="number"
-                            placeholder="数量を入力"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            value={quantityInput}
-                            onChange={(e) => setQuantityInput(e.target.value)}
-                          />
-                        </div>
+            if (!name) {
+                alert('商品名を入力してください');
+                return;
+            }
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleBarcodeTransaction}
-                            className={`flex-1 px-4 py-2 rounded text-white font-medium ${
-                              operationType === 'in' 
-                                ? 'bg-green-600 hover:bg-green-700' 
-                                : 'bg-red-600 hover:bg-red-700'
-                            }`}
-                            disabled={!barcodeInput || !quantityInput}
-                          >
-                            {operationType === 'in' ? '入庫実行' : '出庫実行'}
-                          </button>
-                          <button
-                            onClick={closeBarcodeScanner}
-                            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                          >
-                            キャンセル
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            if (editingItem) {
+                // 編集
+                const index = items.findIndex(item => item.id === editingItem.id);
+                items[index] = { ...editingItem, name, category, quantity, unit, minStock, location, barcode };
+            } else {
+                // 新規追加
+                const newItem = {
+                    id: Date.now(),
+                    name, category, quantity, unit, minStock, location, barcode
+                };
+                items.push(newItem);
+            }
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredItems.map(item => (
-                      <div
-                        key={item.id}
-                        className={`p-4 border rounded-lg ${
-                          item.quantity <= item.minStock 
-                            ? 'border-orange-300 bg-orange-50' 
-                            : 'border-gray-200 bg-white'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-gray-800">{item.name}</h3>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleEditItem(item)}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteItem(item.id)}
-                              className="text-red-600 hover:text-red-800 p-1"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600 mb-3">
-                          <div>カテゴリ: {item.category}</div>
-                          <div>場所: {item.location}</div>
-                          <div>最小在庫: {item.minStock}{item.unit}</div>
-                          {item.barcode && <div>バーコード: {item.barcode}</div>}
-                        </div>
+            saveItems();
+            renderItems();
+            cancelForm();
+        }
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="bg-red-500 text-white w-8 h-8 rounded-full hover:bg-red-600 flex items-center justify-center"
-                              disabled={item.quantity <= 0}
-                            >
-                              -
-                            </button>
-                            <span className="font-bold text-lg min-w-[60px] text-center">
-                              {item.quantity}{item.unit}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="bg-green-500 text-white w-8 h-8 rounded-full hover:bg-green-600 flex items-center justify-center"
-                            >
-                              +
-                            </button>
-                          </div>
-                          {item.quantity <= item.minStock && (
-                            <div className="text-orange-600 text-sm font-semibold">
-                              在庫不足
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        // 商品編集
+        function editItem(id) {
+            const item = items.find(item => item.id === id);
+            if (!item) return;
 
-                  {filteredItems.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      {searchTerm ? '検索条件に一致する商品が見つかりません' : '商品が登録されていません'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        };
+            editingItem = item;
+            document.getElementById('formTitle').textContent = '商品を編集';
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemCategory').value = item.category;
+            document.getElementById('itemQuantity').value = item.quantity;
+            document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('itemMinStock').value = item.minStock;
+            document.getElementById('itemLocation').value = item.location;
+            document.getElementById('itemBarcode').value = item.barcode || '';
+            document.getElementById('addForm').classList.remove('hidden');
+        }
 
-        ReactDOM.render(<InventoryApp />, document.getElementById('root'));
+        // 商品削除
+        function deleteItem(id) {
+            if (confirm('本当に削除しますか？')) {
+                items = items.filter(item => item.id !== id);
+                saveItems();
+                renderItems();
+            }
+        }
+
+        // 数量更新
+        function updateQuantity(id, change) {
+            const item = items.find(item => item.id === id);
+            if (item) {
+                item.quantity = Math.max(0, item.quantity + change);
+                saveItems();
+                renderItems();
+            }
+        }
+
+        // バーコードスキャナー
+        function openBarcodeScanner() {
+            document.getElementById('barcodeModal').classList.remove('hidden');
+            document.getElementById('barcodeInput').value = '';
+            document.getElementById('barcodeQuantity').value = '';
+        }
+
+        function closeBarcodeScanner() {
+            document.getElementById('barcodeModal').classList.add('hidden');
+            stopCamera();
+        }
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 320 },
+                    height: { ideal: 240 }
+                } 
+            })
+            .then(stream => {
+                cameraStream = stream;
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                document.getElementById('cameraPlaceholder').classList.add('hidden');
+            })
+            .catch(error => {
+                console.error('カメラエラー:', error);
+                alert('カメラにアクセスできませんでした。手動でバーコードを入力してください。');
+            });
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+                document.getElementById('cameraVideo').classList.add('hidden');
+                document.getElementById('cameraPlaceholder').classList.remove('hidden');
+            }
+        }
+
+        function executeBarcodeTransaction() {
+            const barcode = document.getElementById('barcodeInput').value.trim();
+            const quantity = parseInt(document.getElementById('barcodeQuantity').value);
+            const operationType = document.querySelector('input[name="operationType"]:checked').value;
+
+            if (!barcode || !quantity || quantity <= 0) {
+                alert('バーコードと正しい数量を入力してください');
+                return;
+            }
+
+            const existingItem = items.find(item => item.barcode === barcode);
+
+            if (existingItem) {
+                const change = operationType === 'in' ? quantity : -quantity;
+                const newQuantity = Math.max(0, existingItem.quantity + change);
+                existingItem.quantity = newQuantity;
+                
+                const action = operationType === 'in' ? '入庫' : '出庫';
+                alert(`${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
+                
+                saveItems();
+                renderItems();
+                document.getElementById('barcodeInput').value = '';
+                document.getElementById('barcodeQuantity').value = '';
+            } else {
+                if (operationType === 'out') {
+                    alert('未登録の商品は出庫できません。先に商品を登録してください。');
+                    return;
+                }
+                
+                // 新商品の場合
+                document.getElementById('itemBarcode').value = barcode;
+                document.getElementById('itemQuantity').value = quantity;
+                closeBarcodeScanner();
+                openAddForm();
+                alert('新しい商品です。商品情報を入力して登録してください。');
+            }
+        }
     </script>
 </body>
 </html>

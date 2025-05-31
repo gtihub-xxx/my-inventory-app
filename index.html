@@ -400,7 +400,11 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.9.0 - 2025.05.31 - 履歴一覧表示＋CSV出力版
+                v3.0.0 - 2025.05.31 - 単価・金額管理機能追加版
+            </div>
+            <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
+                <span id="totalItems">商品数: 0</span> | 
+                <span id="totalValue">総在庫金額: ¥0</span>
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -466,7 +470,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.9.0</div>
+                <div>バージョン: v3.0.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -474,6 +478,7 @@
                 <div>QuaggaJS: <span id="quaggaStatus"></span></div>
                 <div>localStorage: <span id="storageStatus"></span></div>
                 <div>登録商品数: <span id="itemCount"></span></div>
+                <div>総在庫金額: <span id="totalValue"></span></div>
                 <div>履歴件数: <span id="historyCount2"></span></div>
                 <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
                     <button onclick="exportDebugLog()" style="background: #3b82f6; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;">ログ出力</button>
@@ -589,6 +594,8 @@
                             <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">品名</th>
                             <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">入庫/出庫</th>
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">数量</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">単価</th>
+                            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">金額</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
@@ -685,9 +692,9 @@
 
         function loadSampleData() {
             items = [
-                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, minStock: 2, location: '洗面所', barcode: '4901301234567' },
-                { id: 2, name: '醤油', category: '一般', quantity: 1, minStock: 1, location: 'キッチン', barcode: '4902102876543' },
-                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
+                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, price: 298, minStock: 2, location: '洗面所', barcode: '4901301234567' },
+                { id: 2, name: '醤油', category: '一般', quantity: 1, price: 178, minStock: 1, location: 'キッチン', barcode: '4902102876543' },
+                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, price: 348, minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
             ];
         }
 
@@ -727,7 +734,7 @@
         }
         
         // 履歴エントリの追加
-        function addTransactionHistory(itemId, itemName, operationType, quantity, previousQuantity, newQuantity, source = 'manual', barcode = '', note = '') {
+        function addTransactionHistory(itemId, itemName, operationType, quantity, previousQuantity, newQuantity, source = 'manual', barcode = '', note = '', price = 0) {
             const historyEntry = {
                 id: Date.now(),
                 timestamp: new Date().toISOString(),
@@ -737,6 +744,8 @@
                 quantity: quantity,
                 previousQuantity: previousQuantity,
                 newQuantity: newQuantity,
+                price: price,
+                amount: quantity * price, // 金額計算
                 barcode: barcode,
                 source: source, // 'manual', 'barcode', 'button'
                 note: note
@@ -775,7 +784,11 @@
             }
 
             noItems.classList.add('hidden');
-            container.innerHTML = filteredItems.map(item => `
+            container.innerHTML = filteredItems.map(item => {
+                const totalValue = (item.quantity * (item.price || 0)).toLocaleString();
+                const unitPrice = (item.price || 0).toLocaleString();
+                
+                return `
                 <div class="item-card ${item.quantity <= item.minStock ? 'low-stock' : ''}">
                     <div class="item-header">
                         <div class="item-title">${item.name}</div>
@@ -787,6 +800,8 @@
                     <div class="item-details">
                         <div>場所: ${item.location}</div>
                         <div>最小在庫: ${item.minStock}</div>
+                        <div>単価: ¥${unitPrice}</div>
+                        <div>在庫金額: ¥${totalValue}</div>
                         ${item.barcode ? `<div>バーコード: ${item.barcode}</div>` : ''}
                     </div>
                     <div class="quantity-controls">
@@ -798,7 +813,8 @@
                         ${item.quantity <= item.minStock ? '<div class="low-stock-badge">在庫不足</div>' : ''}
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // 在庫不足アラート
@@ -816,6 +832,18 @@
             } else {
                 alert.classList.add('hidden');
             }
+            
+            // 在庫サマリーを更新
+            updateInventorySummary();
+        }
+        
+        // 在庫サマリー更新
+        function updateInventorySummary() {
+            const totalItems = items.length;
+            const totalValue = items.reduce((sum, item) => sum + (item.quantity * (item.price || 0)), 0);
+            
+            document.getElementById('totalItems').textContent = `商品数: ${totalItems}`;
+            document.getElementById('totalValue').textContent = `総在庫金額: ¥${totalValue.toLocaleString()}`;
         }
 
         // 商品追加フォーム（改善版）
@@ -875,6 +903,7 @@
         function clearForm() {
             document.getElementById('itemName').value = '';
             document.getElementById('itemQuantity').value = '0';
+            document.getElementById('itemPrice').value = '0';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
             document.getElementById('itemBarcode').value = '';
@@ -917,6 +946,7 @@
         function saveItem() {
             const name = document.getElementById('itemName').value.trim();
             const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
+            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
             const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
             const location = document.getElementById('itemLocation').value.trim();
             const barcode = document.getElementById('itemBarcode').value.trim();
@@ -930,7 +960,8 @@
                 // 編集
                 const index = items.findIndex(item => item.id === editingItem.id);
                 const oldQuantity = items[index].quantity;
-                items[index] = { ...editingItem, name, category: '一般', quantity, minStock, location, barcode };
+                const oldPrice = items[index].price || 0;
+                items[index] = { ...editingItem, name, category: '一般', quantity, price, minStock, location, barcode };
                 
                 // 数量が変更された場合は履歴に記録
                 if (oldQuantity !== quantity) {
@@ -944,14 +975,31 @@
                         quantity,
                         'manual',
                         barcode,
-                        `商品編集による数量調整（${oldQuantity} → ${quantity}）`
+                        `商品編集による数量調整（${oldQuantity} → ${quantity}）`,
+                        price
+                    );
+                }
+                
+                // 単価が変更された場合も履歴に記録
+                if (oldPrice !== price) {
+                    addTransactionHistory(
+                        editingItem.id,
+                        name,
+                        'adjustment',
+                        0,
+                        quantity,
+                        quantity,
+                        'manual',
+                        barcode,
+                        `単価変更（¥${oldPrice.toLocaleString()} → ¥${price.toLocaleString()}）`,
+                        price
                     );
                 }
             } else {
                 // 新規追加
                 const newItem = {
                     id: Date.now(),
-                    name, category: '一般', quantity, minStock, location, barcode
+                    name, category: '一般', quantity, price, minStock, location, barcode
                 };
                 items.push(newItem);
                 
@@ -966,7 +1014,8 @@
                         quantity,
                         tempBarcodeData ? 'barcode' : 'manual',
                         barcode,
-                        '新商品登録'
+                        '新商品登録',
+                        price
                     );
                 }
                 
@@ -994,6 +1043,7 @@
             document.getElementById('formTitle').textContent = '商品を編集';
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemQuantity').value = item.quantity;
+            document.getElementById('itemPrice').value = item.price || 0;
             document.getElementById('itemMinStock').value = item.minStock;
             document.getElementById('itemLocation').value = item.location;
             document.getElementById('itemBarcode').value = item.barcode || '';
@@ -1028,7 +1078,8 @@
                     newQuantity, 
                     'button', 
                     item.barcode || '',
-                    `ボタンによる${operationType === 'in' ? '入庫' : '出庫'}`
+                    `ボタンによる${operationType === 'in' ? '入庫' : '出庫'}`,
+                    item.price || 0
                 );
                 
                 saveItems();
@@ -1547,13 +1598,17 @@
             // 商品数
             document.getElementById('itemCount').textContent = `${items.length}個`;
             
+            // 総在庫金額
+            const totalValue = items.reduce((sum, item) => sum + (item.quantity * (item.price || 0)), 0);
+            document.getElementById('totalValue').textContent = `¥${totalValue.toLocaleString()}`;
+            
             // 履歴件数
             document.getElementById('historyCount2').textContent = `${transactionHistory.length}件`;
         }
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.9.0',
+                version: 'v3.0.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1697,6 +1752,9 @@
                     operationColor = '#f59e0b';
                 }
                 
+                const price = entry.price || 0;
+                const amount = entry.amount || 0;
+                
                 return `
                     <tr style="border-bottom: 1px solid #f3f4f6;">
                         <td style="padding: 8px; font-size: 13px;">${dateStr}</td>
@@ -1707,6 +1765,8 @@
                             </span>
                         </td>
                         <td style="padding: 8px; text-align: right; font-size: 14px; font-weight: 600;">${entry.quantity}</td>
+                        <td style="padding: 8px; text-align: right; font-size: 13px;">¥${price.toLocaleString()}</td>
+                        <td style="padding: 8px; text-align: right; font-size: 13px; font-weight: 600;">¥${amount.toLocaleString()}</td>
                     </tr>
                 `;
             }).join('');
@@ -1779,7 +1839,7 @@
             }
             
             // CSVヘッダー
-            let csvContent = '日にち,品名,入庫/出庫,数量\n';
+            let csvContent = '日にち,品名,入庫/出庫,数量,単価,金額\n';
             
             // CSVデータ
             filteredHistory.forEach(entry => {
@@ -1795,8 +1855,11 @@
                 const operationText = entry.operationType === 'in' ? '入庫' : 
                                     entry.operationType === 'out' ? '出庫' : '調整';
                 
+                const price = entry.price || 0;
+                const amount = entry.amount || 0;
+                
                 // CSV形式で追加（カンマを含む項目は引用符で囲む）
-                csvContent += `"${dateStr}","${entry.itemName}","${operationText}","${entry.quantity}"\n`;
+                csvContent += `"${dateStr}","${entry.itemName}","${operationText}","${entry.quantity}","${price}","${amount}"\n`;
             });
             
             // BOMを追加してExcelで文字化けを防ぐ
@@ -2106,11 +2169,14 @@
                     newQuantity,
                     'barcode',
                     barcode,
-                    `バーコードスキャナーによる${operationType === 'in' ? '入庫' : '出庫'}`
+                    `バーコードスキャナーによる${operationType === 'in' ? '入庫' : '出庫'}`,
+                    existingItem.price || 0
                 );
                 
                 const action = operationType === 'in' ? '入庫' : '出庫';
-                alert(`✅ ${existingItem.name}を${quantity}個${action}しました。\n現在の在庫: ${newQuantity}個`);
+                const amount = quantity * (existingItem.price || 0);
+                const amountText = amount > 0 ? `\n金額: ¥${amount.toLocaleString()}` : '';
+                alert(`✅ ${existingItem.name}を${quantity}個${action}しました。\n現在の在庫: ${newQuantity}個${amountText}`);
                 
                 saveItems();
                 renderItems();

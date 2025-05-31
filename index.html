@@ -400,7 +400,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.6.0 - 2025.05.31 - バーコード引き継ぎ改善版
+                v2.8.0 - 2025.05.31 - 入出庫履歴機能追加版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -412,6 +412,7 @@
             <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所で検索...">
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
+            <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
         </div>
 
         <div id="addForm" class="form-section hidden">
@@ -425,21 +426,7 @@
                     <label>現在の数量</label>
                     <input type="number" id="itemQuantity" class="form-control" placeholder="現在の数量" value="0">
                 </div>
-                <div>
-                    <label>単位</label>
-                    <select id="itemUnit" class="form-control">
-                        <option value="">単位を選択</option>
-                        <option value="個">個</option>
-                        <option value="本">本</option>
-                        <option value="パック">パック</option>
-                        <option value="kg">kg</option>
-                        <option value="g">g</option>
-                        <option value="L">L</option>
-                        <option value="ml">ml</option>
-                        <option value="袋">袋</option>
-                        <option value="箱">箱</option>
-                    </select>
-                </div>
+
                 <div>
                     <label>最小在庫数（アラート基準）</label>
                     <input type="number" id="itemMinStock" class="form-control" placeholder="最小在庫数" value="1">
@@ -479,7 +466,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.6.0</div>
+                <div>バージョン: v2.8.0</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -487,6 +474,7 @@
                 <div>QuaggaJS: <span id="quaggaStatus"></span></div>
                 <div>localStorage: <span id="storageStatus"></span></div>
                 <div>登録商品数: <span id="itemCount"></span></div>
+                <div>履歴件数: <span id="historyCount2"></span></div>
                 <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
                     <button onclick="exportDebugLog()" style="background: #3b82f6; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;">ログ出力</button>
                     <button onclick="clearAllData()" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-left: 5px;">全削除</button>
@@ -559,6 +547,47 @@
         </div>
     </div>
 
+    <!-- 履歴表示モーダル -->
+    <div id="historyModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 class="modal-title">📊 入出庫履歴</h3>
+                <button class="close-btn" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <input type="text" id="historySearch" class="form-control" placeholder="商品名で検索..." style="flex: 1; min-width: 200px;">
+                    <select id="historyFilter" class="form-control" style="min-width: 120px;">
+                        <option value="all">全ての操作</option>
+                        <option value="in">入庫のみ</option>
+                        <option value="out">出庫のみ</option>
+                        <option value="adjustment">調整のみ</option>
+                    </select>
+                    <select id="historyPeriod" class="form-control" style="min-width: 120px;">
+                        <option value="all">全期間</option>
+                        <option value="today">今日</option>
+                        <option value="week">1週間</option>
+                        <option value="month">1ヶ月</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="clearHistory()" style="white-space: nowrap;">🗑️ 履歴削除</button>
+                </div>
+                
+                <div id="historyStats" style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+                    <span id="historyCount">総件数: 0件</span> | 
+                    <span id="historyInCount">入庫: 0件</span> | 
+                    <span id="historyOutCount">出庫: 0件</span>
+                </div>
+            </div>
+
+            <div id="historyList" style="max-height: 400px; overflow-y: auto;">
+                <div id="noHistory" class="hidden" style="text-align: center; padding: 40px; color: #6b7280;">
+                    履歴がありません
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- QuaggaJS ライブラリ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 
@@ -574,10 +603,14 @@
         
         // バーコードデータを一時保存する変数
         let tempBarcodeData = null;
+        
+        // 履歴データを保存する変数
+        let transactionHistory = [];
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
             loadItems();
+            loadTransactionHistory();
             renderItems();
             updateLowStockAlert();
             initializeDebugPanel();
@@ -586,6 +619,11 @@
             document.getElementById('searchInput').addEventListener('input', function() {
                 renderItems();
             });
+            
+            // 履歴検索・フィルタ機能
+            document.getElementById('historySearch').addEventListener('input', renderHistory);
+            document.getElementById('historyFilter').addEventListener('change', renderHistory);
+            document.getElementById('historyPeriod').addEventListener('change', renderHistory);
             
             // バーコード入力の監視
             document.getElementById('barcodeInput').addEventListener('input', function() {
@@ -633,9 +671,9 @@
 
         function loadSampleData() {
             items = [
-                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, unit: 'パック', minStock: 2, location: '洗面所', barcode: '4901301234567' },
-                { id: 2, name: '醤油', category: '一般', quantity: 1, unit: '本', minStock: 1, location: 'キッチン', barcode: '4902102876543' },
-                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, unit: '個', minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
+                { id: 1, name: 'トイレットペーパー', category: '一般', quantity: 5, minStock: 2, location: '洗面所', barcode: '4901301234567' },
+                { id: 2, name: '醤油', category: '一般', quantity: 1, minStock: 1, location: 'キッチン', barcode: '4902102876543' },
+                { id: 3, name: '洗濯洗剤', category: '一般', quantity: 0, minStock: 1, location: '洗濯機横', barcode: '4903301123456' }
             ];
         }
 
@@ -648,6 +686,52 @@
                 showTempDataWarning();
             }
             updateLowStockAlert();
+        }
+        
+        // 履歴データの読み込み
+        function loadTransactionHistory() {
+            try {
+                const savedHistory = localStorage.getItem('inventoryHistory');
+                if (savedHistory) {
+                    transactionHistory = JSON.parse(savedHistory);
+                } else {
+                    transactionHistory = [];
+                }
+            } catch (error) {
+                console.warn('履歴データの読み込みに失敗:', error);
+                transactionHistory = [];
+            }
+        }
+        
+        // 履歴データの保存
+        function saveTransactionHistory() {
+            try {
+                localStorage.setItem('inventoryHistory', JSON.stringify(transactionHistory));
+            } catch (error) {
+                console.warn('履歴データの保存に失敗:', error);
+            }
+        }
+        
+        // 履歴エントリの追加
+        function addTransactionHistory(itemId, itemName, operationType, quantity, previousQuantity, newQuantity, source = 'manual', barcode = '', note = '') {
+            const historyEntry = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                itemId: itemId,
+                itemName: itemName,
+                operationType: operationType, // 'in', 'out', 'adjustment'
+                quantity: quantity,
+                previousQuantity: previousQuantity,
+                newQuantity: newQuantity,
+                barcode: barcode,
+                source: source, // 'manual', 'barcode', 'button'
+                note: note
+            };
+            
+            transactionHistory.unshift(historyEntry); // 新しい履歴を先頭に追加
+            saveTransactionHistory();
+            
+            console.log('📝 履歴追加:', historyEntry);
         }
 
         function showTempDataWarning() {
@@ -688,13 +772,13 @@
                     </div>
                     <div class="item-details">
                         <div>場所: ${item.location}</div>
-                        <div>最小在庫: ${item.minStock}${item.unit}</div>
+                        <div>最小在庫: ${item.minStock}</div>
                         ${item.barcode ? `<div>バーコード: ${item.barcode}</div>` : ''}
                     </div>
                     <div class="quantity-controls">
                         <div class="quantity-display">
                             <button class="quantity-btn quantity-minus" onclick="updateQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>−</button>
-                            <div class="quantity-text">${item.quantity}${item.unit}</div>
+                            <div class="quantity-text">${item.quantity}</div>
                             <button class="quantity-btn quantity-plus" onclick="updateQuantity(${item.id}, 1)">＋</button>
                         </div>
                         ${item.quantity <= item.minStock ? '<div class="low-stock-badge">在庫不足</div>' : ''}
@@ -713,7 +797,7 @@
                 alert.classList.remove('hidden');
                 alert.className = 'alert';
                 list.innerHTML = lowStockItems.map(item => 
-                    `<span style="background: #fbbf24; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${item.name} (残り${item.quantity}${item.unit})</span>`
+                    `<span style="background: #fbbf24; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block;">${item.name} (残り${item.quantity})</span>`
                 ).join('');
             } else {
                 alert.classList.add('hidden');
@@ -777,7 +861,6 @@
         function clearForm() {
             document.getElementById('itemName').value = '';
             document.getElementById('itemQuantity').value = '0';
-            document.getElementById('itemUnit').value = '';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
             document.getElementById('itemBarcode').value = '';
@@ -820,7 +903,6 @@
         function saveItem() {
             const name = document.getElementById('itemName').value.trim();
             const quantity = parseInt(document.getElementById('itemQuantity').value) || 0;
-            const unit = document.getElementById('itemUnit').value;
             const minStock = parseInt(document.getElementById('itemMinStock').value) || 1;
             const location = document.getElementById('itemLocation').value.trim();
             const barcode = document.getElementById('itemBarcode').value.trim();
@@ -833,14 +915,47 @@
             if (editingItem) {
                 // 編集
                 const index = items.findIndex(item => item.id === editingItem.id);
-                items[index] = { ...editingItem, name, category: '一般', quantity, unit, minStock, location, barcode };
+                const oldQuantity = items[index].quantity;
+                items[index] = { ...editingItem, name, category: '一般', quantity, minStock, location, barcode };
+                
+                // 数量が変更された場合は履歴に記録
+                if (oldQuantity !== quantity) {
+                    const operationType = quantity > oldQuantity ? 'in' : 'out';
+                    addTransactionHistory(
+                        editingItem.id,
+                        name,
+                        'adjustment',
+                        Math.abs(quantity - oldQuantity),
+                        oldQuantity,
+                        quantity,
+                        'manual',
+                        barcode,
+                        `商品編集による数量調整（${oldQuantity} → ${quantity}）`
+                    );
+                }
             } else {
                 // 新規追加
                 const newItem = {
                     id: Date.now(),
-                    name, category: '一般', quantity, unit, minStock, location, barcode
+                    name, category: '一般', quantity, minStock, location, barcode
                 };
                 items.push(newItem);
+                
+                // 新規登録を履歴に記録
+                if (quantity > 0) {
+                    addTransactionHistory(
+                        newItem.id,
+                        name,
+                        'in',
+                        quantity,
+                        0,
+                        quantity,
+                        tempBarcodeData ? 'barcode' : 'manual',
+                        barcode,
+                        '新商品登録'
+                    );
+                }
+                
                 console.log('✅ 新商品を登録しました:', newItem);
             }
 
@@ -865,7 +980,6 @@
             document.getElementById('formTitle').textContent = '商品を編集';
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemQuantity').value = item.quantity;
-            document.getElementById('itemUnit').value = item.unit;
             document.getElementById('itemMinStock').value = item.minStock;
             document.getElementById('itemLocation').value = item.location;
             document.getElementById('itemBarcode').value = item.barcode || '';
@@ -885,7 +999,24 @@
         function updateQuantity(id, change) {
             const item = items.find(item => item.id === id);
             if (item) {
-                item.quantity = Math.max(0, item.quantity + change);
+                const previousQuantity = item.quantity;
+                const newQuantity = Math.max(0, item.quantity + change);
+                item.quantity = newQuantity;
+                
+                // 履歴に記録
+                const operationType = change > 0 ? 'in' : 'out';
+                addTransactionHistory(
+                    item.id, 
+                    item.name, 
+                    operationType, 
+                    Math.abs(change), 
+                    previousQuantity, 
+                    newQuantity, 
+                    'button', 
+                    item.barcode || '',
+                    `ボタンによる${operationType === 'in' ? '入庫' : '出庫'}`
+                );
+                
                 saveItems();
                 renderItems();
             }
@@ -1401,11 +1532,14 @@
             
             // 商品数
             document.getElementById('itemCount').textContent = `${items.length}個`;
+            
+            // 履歴件数
+            document.getElementById('historyCount2').textContent = `${transactionHistory.length}件`;
         }
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.6.0',
+                version: 'v2.8.0',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1422,7 +1556,9 @@
                     }
                 })(),
                 itemCount: items.length,
+                historyCount: transactionHistory.length,
                 items: items,
+                history: transactionHistory,
                 errors: [] // 今後エラーログを追加可能
             };
             
@@ -1447,13 +1583,148 @@
                 if (confirm('🔥 本当に削除しますか？')) {
                     try {
                         localStorage.removeItem('householdInventory');
+                        localStorage.removeItem('inventoryHistory');
                         items = [];
+                        transactionHistory = [];
                         renderItems();
                         updateLowStockAlert();
                         updateDebugInfo();
                         alert('🗑️ 全データを削除しました');
                     } catch (error) {
                         alert('❌ 削除に失敗しました: ' + error.message);
+                    }
+                }
+            }
+        }
+        
+        // 履歴モーダル機能
+        function openHistoryModal() {
+            document.getElementById('historyModal').classList.remove('hidden');
+            renderHistory();
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+        
+        // 履歴表示機能
+        function renderHistory() {
+            const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+            const filterType = document.getElementById('historyFilter').value;
+            const periodFilter = document.getElementById('historyPeriod').value;
+            
+            // フィルタ処理
+            let filteredHistory = transactionHistory.filter(entry => {
+                // 検索フィルタ
+                const matchesSearch = entry.itemName.toLowerCase().includes(searchTerm);
+                
+                // 操作種別フィルタ
+                const matchesType = filterType === 'all' || entry.operationType === filterType;
+                
+                // 期間フィルタ
+                let matchesPeriod = true;
+                if (periodFilter !== 'all') {
+                    const entryDate = new Date(entry.timestamp);
+                    const now = new Date();
+                    
+                    switch (periodFilter) {
+                        case 'today':
+                            matchesPeriod = entryDate.toDateString() === now.toDateString();
+                            break;
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= weekAgo;
+                            break;
+                        case 'month':
+                            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            matchesPeriod = entryDate >= monthAgo;
+                            break;
+                    }
+                }
+                
+                return matchesSearch && matchesType && matchesPeriod;
+            });
+            
+            // 統計更新
+            updateHistoryStats(filteredHistory);
+            
+            const container = document.getElementById('historyList');
+            const noHistory = document.getElementById('noHistory');
+            
+            if (filteredHistory.length === 0) {
+                container.innerHTML = '';
+                noHistory.classList.remove('hidden');
+                return;
+            }
+            
+            noHistory.classList.add('hidden');
+            
+            container.innerHTML = filteredHistory.map(entry => {
+                const date = new Date(entry.timestamp);
+                const dateStr = date.toLocaleDateString('ja-JP', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                const operationIcon = entry.operationType === 'in' ? '📥' : 
+                                    entry.operationType === 'out' ? '📤' : '⚖️';
+                const operationText = entry.operationType === 'in' ? '入庫' : 
+                                    entry.operationType === 'out' ? '出庫' : '調整';
+                const operationColor = entry.operationType === 'in' ? '#10b981' : 
+                                     entry.operationType === 'out' ? '#ef4444' : '#f59e0b';
+                
+                const sourceIcon = entry.source === 'barcode' ? '📱' : 
+                                 entry.source === 'button' ? '🖱️' : '✏️';
+                
+                return `
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px; background: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">
+                                    ${operationIcon} ${entry.itemName}
+                                </div>
+                                <div style="font-size: 14px; color: #6b7280;">
+                                    <span style="color: ${operationColor}; font-weight: bold;">${operationText} ${entry.quantity}個</span>
+                                    <span style="margin: 0 8px;">|</span>
+                                    <span>${entry.previousQuantity} → ${entry.newQuantity}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px; color: #9ca3af;">
+                                <div>${dateStr}</div>
+                                <div style="margin-top: 2px;">${sourceIcon} ${entry.source}</div>
+                            </div>
+                        </div>
+                        ${entry.barcode ? `<div style="font-size: 12px; color: #6b7280;">バーコード: ${entry.barcode}</div>` : ''}
+                        ${entry.note ? `<div style="font-size: 12px; color: #6b7280; font-style: italic;">${entry.note}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 履歴統計更新
+        function updateHistoryStats(filteredHistory) {
+            const totalCount = filteredHistory.length;
+            const inCount = filteredHistory.filter(entry => entry.operationType === 'in').length;
+            const outCount = filteredHistory.filter(entry => entry.operationType === 'out').length;
+            
+            document.getElementById('historyCount').textContent = `総件数: ${totalCount}件`;
+            document.getElementById('historyInCount').textContent = `入庫: ${inCount}件`;
+            document.getElementById('historyOutCount').textContent = `出庫: ${outCount}件`;
+        }
+        
+        // 履歴削除機能
+        function clearHistory() {
+            if (confirm('⚠️ 全ての履歴を削除しますか？この操作は取り消せません。')) {
+                if (confirm('🔥 本当に削除しますか？')) {
+                    try {
+                        localStorage.removeItem('inventoryHistory');
+                        transactionHistory = [];
+                        renderHistory();
+                        alert('🗑️ 履歴を削除しました');
+                    } catch (error) {
+                        alert('❌ 履歴削除に失敗しました: ' + error.message);
                     }
                 }
             }
@@ -1526,15 +1797,6 @@
                     if (productInfo.name && !document.getElementById('itemName').value) {
                         document.getElementById('itemName').value = productInfo.name;
                     }
-                    
-                    if (productInfo.unit && !document.getElementById('itemUnit').value) {
-                        // 単位を推測して設定
-                        const unitSelect = document.getElementById('itemUnit');
-                        const detectedUnit = detectUnit(productInfo.name, productInfo.unit);
-                        if (detectedUnit) {
-                            unitSelect.value = detectedUnit;
-                        }
-                    }
 
                     updateBarcodeStatus(`✅ 商品情報を取得しました: ${productInfo.name}`, 'success');
                     alert(`✅ 商品情報を取得しました！\n商品名: ${productInfo.name}`);
@@ -1586,22 +1848,7 @@
             return null;
         }
 
-        // 商品名から単位を推測
-        function detectUnit(productName, quantity) {
-            const name = productName.toLowerCase();
-            const qty = quantity ? quantity.toLowerCase() : '';
-            
-            // キーワードマッチング
-            if (name.includes('トイレットペーパー') || name.includes('ティッシュ')) return 'パック';
-            if (name.includes('洗剤') || name.includes('シャンプー')) return '本';
-            if (name.includes('牛乳') || name.includes('ジュース')) return '本';
-            if (name.includes('パン') || name.includes('お菓子')) return '個';
-            if (qty.includes('ml') || qty.includes('l')) return 'ml';
-            if (qty.includes('g') || qty.includes('kg')) return 'g';
-            if (qty.includes('pack') || qty.includes('パック')) return 'パック';
-            
-            return '個'; // デフォルト
-        }
+
 
         // 定期的にデバッグ情報を更新
         setInterval(() => {
@@ -1753,12 +2000,26 @@
             const existingItem = items.find(item => item.barcode === barcode);
 
             if (existingItem) {
+                const previousQuantity = existingItem.quantity;
                 const change = operationType === 'in' ? quantity : -quantity;
                 const newQuantity = Math.max(0, existingItem.quantity + change);
                 existingItem.quantity = newQuantity;
                 
+                // 履歴に記録
+                addTransactionHistory(
+                    existingItem.id,
+                    existingItem.name,
+                    operationType,
+                    quantity,
+                    previousQuantity,
+                    newQuantity,
+                    'barcode',
+                    barcode,
+                    `バーコードスキャナーによる${operationType === 'in' ? '入庫' : '出庫'}`
+                );
+                
                 const action = operationType === 'in' ? '入庫' : '出庫';
-                alert(`✅ ${existingItem.name}を${quantity}${existingItem.unit}${action}しました。\n現在の在庫: ${newQuantity}${existingItem.unit}`);
+                alert(`✅ ${existingItem.name}を${quantity}個${action}しました。\n現在の在庫: ${newQuantity}個`);
                 
                 saveItems();
                 renderItems();

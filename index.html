@@ -383,7 +383,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v2.3.2 - 2025.05.31 - バーコード引き継ぎ確実化対応版
+                v2.4.1 - 2025.05.31 - バーコード引き継ぎ完全対応版
             </div>
             <div id="lowStockAlert" class="hidden">
                 <strong>⚠️ 在庫不足のお知らせ</strong>
@@ -462,7 +462,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v2.3.2</div>
+                <div>バージョン: v2.4.1</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -490,7 +490,12 @@
                 <video id="cameraVideo" class="camera-video hidden" autoplay playsinline></video>
                 <canvas id="scanCanvas" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
-                    <button class="btn btn-primary" onclick="startAdvancedBarcodeScanner()">📷 高精度バーコードスキャン</button>
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #6b7280; margin-bottom: 15px;">カメラを起動しています...</p>
+                        <div style="font-size: 14px; color: #9ca3af;">
+                            バーコードをカメラに向けてください
+                        </div>
+                    </div>
                 </div>
                 <div id="focusGuide" class="focus-guide hidden"></div>
                 <div id="tapToFocusHint" class="tap-to-focus-hint hidden">画面をタップしてフォーカス調整</div>
@@ -695,32 +700,15 @@
             }
         }
 
-        // 商品追加フォーム
+        // 商品追加フォーム（通常版）
         function openAddForm() {
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('formTitle').textContent = '新しい商品を追加';
             clearForm();
             editingItem = null;
             
-            // 一時保存されたバーコードデータがあれば適用
+            // 商品名フィールドにフォーカス
             setTimeout(() => {
-                if (window.tempBarcodeData) {
-                    const barcodeField = document.getElementById('itemBarcode');
-                    const quantityField = document.getElementById('itemQuantity');
-                    
-                    if (barcodeField) {
-                        barcodeField.value = window.tempBarcodeData.barcode;
-                        barcodeField.style.borderColor = '#10b981'; // 緑色でハイライト
-                        barcodeField.style.borderWidth = '2px';
-                        console.log('✅ openAddForm内でバーコード設定:', window.tempBarcodeData.barcode);
-                    }
-                    if (quantityField) {
-                        quantityField.value = window.tempBarcodeData.quantity;
-                        console.log('✅ openAddForm内で数量設定:', window.tempBarcodeData.quantity);
-                    }
-                }
-                
-                // 商品名フィールドにフォーカス
                 const nameField = document.getElementById('itemName');
                 if (nameField) {
                     nameField.focus();
@@ -730,22 +718,20 @@
 
         function clearForm() {
             document.getElementById('itemName').value = '';
-            
-            // 一時保存データがない場合のみクリア
-            if (!window.tempBarcodeData) {
-                document.getElementById('itemQuantity').value = '0';
-                document.getElementById('itemBarcode').value = '';
-            }
-            
+            document.getElementById('itemQuantity').value = '0';
             document.getElementById('itemUnit').value = '';
             document.getElementById('itemMinStock').value = '1';
             document.getElementById('itemLocation').value = '';
+            document.getElementById('itemBarcode').value = '';
             
             // バーコードフィールドの特別スタイルをリセット
             const barcodeField = document.getElementById('itemBarcode');
             if (barcodeField) {
+                barcodeField.style.backgroundColor = '';
                 barcodeField.style.borderColor = '';
                 barcodeField.style.borderWidth = '';
+                barcodeField.removeAttribute('readonly');
+                barcodeField.removeAttribute('title');
             }
         }
 
@@ -753,11 +739,28 @@
             document.getElementById('addForm').classList.add('hidden');
             editingItem = null;
             
-            // 一時保存データをクリア
+            // 全ての一時保存データをクリア
+            if (window.pendingBarcodeData) {
+                delete window.pendingBarcodeData;
+                console.log('pending バーコードデータをクリア');
+            }
             if (window.tempBarcodeData) {
                 delete window.tempBarcodeData;
-                console.log('一時バーコードデータをクリア');
+                console.log('temp バーコードデータをクリア');
             }
+            
+            // セッションストレージもクリア
+            try {
+                sessionStorage.removeItem('newItemBarcode');
+                sessionStorage.removeItem('newItemQuantity');
+            } catch (e) {
+                console.log('SessionStorage clear failed');
+            }
+            
+            // DOM属性もクリア
+            const modal = document.getElementById('barcodeModal');
+            modal.removeAttribute('data-pending-barcode');
+            modal.removeAttribute('data-pending-quantity');
         }
 
         function saveItem() {
@@ -839,6 +842,11 @@
             document.getElementById('barcodeInput').value = '';
             document.getElementById('barcodeQuantity').value = '1';
             updateBarcodeStatus('');
+            
+            // モーダルを開いたら即座にスキャンを開始
+            setTimeout(() => {
+                startAdvancedBarcodeScanner();
+            }, 500);
         }
 
         function closeBarcodeScanner() {
@@ -1342,7 +1350,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v2.3.2',
+                version: 'v2.4.1',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,

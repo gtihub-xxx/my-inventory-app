@@ -400,7 +400,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.0.0 - 2025.05.31 - 単価・金額管理機能追加版
+                v3.0.1 - 2025.05.31 - 単価・金額管理機能修正版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -473,7 +473,7 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.0.0</div>
+                <div>バージョン: v3.0.1</div>
                 <div>更新日時: 2025.05.31</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
@@ -557,7 +557,7 @@
 
     <!-- 履歴表示モーダル -->
     <div id="historyModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
                 <h3 class="modal-title">📊 入出庫履歴</h3>
                 <button class="close-btn" onclick="closeHistoryModal()">&times;</button>
@@ -599,6 +599,7 @@
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">数量</th>
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">単価</th>
                             <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">金額</th>
+                            <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: bold; font-size: 14px;">削除</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
@@ -1611,7 +1612,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.0.0',
+                version: 'v3.0.1',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -1770,6 +1771,11 @@
                         <td style="padding: 8px; text-align: right; font-size: 14px; font-weight: 600;">${entry.quantity}</td>
                         <td style="padding: 8px; text-align: right; font-size: 13px;">¥${price.toLocaleString()}</td>
                         <td style="padding: 8px; text-align: right; font-size: 13px; font-weight: 600;">¥${amount.toLocaleString()}</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <button onclick="deleteHistoryEntry(${entry.id})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; transition: background-color 0.2s;" title="この履歴を削除" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'">
+                                🗑️
+                            </button>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -1784,6 +1790,39 @@
             document.getElementById('historyCount').textContent = `総件数: ${totalCount}件`;
             document.getElementById('historyInCount').textContent = `入庫: ${inCount}件`;
             document.getElementById('historyOutCount').textContent = `出庫: ${outCount}件`;
+        }
+        
+        // 個別履歴削除機能
+        function deleteHistoryEntry(entryId) {
+            const entry = transactionHistory.find(h => h.id === entryId);
+            if (!entry) {
+                alert('❌ 削除対象の履歴が見つかりません');
+                return;
+            }
+            
+            const confirmMessage = `📝 この履歴を削除しますか？\n\n` +
+                                 `日時: ${new Date(entry.timestamp).toLocaleString('ja-JP')}\n` +
+                                 `商品: ${entry.itemName}\n` +
+                                 `操作: ${entry.operationType === 'in' ? '入庫' : entry.operationType === 'out' ? '出庫' : '調整'}\n` +
+                                 `数量: ${entry.quantity}\n\n` +
+                                 `⚠️ この操作は取り消せません。`;
+            
+            if (confirm(confirmMessage)) {
+                try {
+                    // 履歴から削除
+                    transactionHistory = transactionHistory.filter(h => h.id !== entryId);
+                    saveTransactionHistory();
+                    
+                    // 履歴表示を更新
+                    renderHistory();
+                    
+                    alert('✅ 履歴を削除しました');
+                    console.log('📝 履歴削除完了:', entry);
+                } catch (error) {
+                    console.error('履歴削除エラー:', error);
+                    alert('❌ 履歴削除に失敗しました: ' + error.message);
+                }
+            }
         }
         
         // 履歴削除機能

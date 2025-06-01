@@ -457,7 +457,7 @@
         </div>
 
         <div class="controls">
-            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、購買先、バーコードで検索...">
+            <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、直近購買先で検索...">
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
             <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
@@ -987,8 +987,7 @@
             const filteredItems = items.filter(item =>
                 item.name.toLowerCase().includes(searchTerm) ||
                 item.location.toLowerCase().includes(searchTerm) ||
-                (item.supplier && item.supplier.toLowerCase().includes(searchTerm)) ||
-                (item.barcode && item.barcode.toLowerCase().includes(searchTerm))
+                (item.supplier && item.supplier.toLowerCase().includes(searchTerm))
             );
 
             const container = document.getElementById('itemsGrid');

@@ -95,6 +95,31 @@
             opacity: 0.9;
         }
         
+        .view-toggle {
+            display: flex;
+            gap: 5px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        .view-toggle button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .view-toggle button.active {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        
         .form-section {
             padding: 20px;
             background: #f9fafb;
@@ -115,6 +140,131 @@
             font-size: 16px;
         }
         
+        /* 一覧表示スタイル */
+        .items-table-container {
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .items-table thead {
+            background: #f9fafb;
+        }
+        
+        .items-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        
+        .items-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+        
+        .items-table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .items-table tr.low-stock {
+            background: #fef3c7;
+        }
+        
+        .items-table tr.low-stock:hover {
+            background: #fde68a;
+        }
+        
+        .quantity-controls-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .quantity-btn-small {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 50%;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .quantity-minus-small {
+            background: #ef4444;
+        }
+        
+        .quantity-plus-small {
+            background: #10b981;
+        }
+        
+        .quantity-display-inline {
+            font-weight: 600;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .btn-icon.edit {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-icon.delete {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-badge.low-stock {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-badge.normal {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        /* カード表示スタイル（既存） */
         .items-grid {
             padding: 20px;
             display: grid;
@@ -424,49 +574,65 @@
             font-weight: 500;
         }
         
-        .item-info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 14px;
+        /* 表示設定スタイル */
+        .display-settings {
+            margin-bottom: 30px;
         }
         
-        .item-info-table td {
-            padding: 8px 12px;
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
             border-bottom: 1px solid #e5e7eb;
-            vertical-align: top;
         }
         
-        .item-info-table td:first-child {
-            font-weight: 600;
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-label {
+            font-weight: 500;
             color: #374151;
-            width: 30%;
-            background-color: #f9fafb;
         }
         
-        .item-info-table td:last-child {
-            color: #6b7280;
-        }
-        
-        .purchase-info {
+        .setting-description {
             font-size: 13px;
-            line-height: 1.4;
+            color: #6b7280;
+            margin-top: 2px;
         }
         
-        .purchase-date {
-            color: #059669;
-            font-weight: 500;
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: #d1d5db;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
         
-        .purchase-price {
-            color: #dc2626;
-            font-weight: 600;
+        .toggle-switch.active {
+            background: #3b82f6;
         }
         
-        .purchase-supplier {
-            color: #7c3aed;
-            font-weight: 500;
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
         }
+        
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+        
+        @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
             }
@@ -478,6 +644,15 @@
             .items-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .items-table {
+                font-size: 14px;
+            }
+            
+            .items-table th,
+            .items-table td {
+                padding: 8px 12px;
+            }
         }
     </style>
 </head>
@@ -486,7 +661,7 @@
         <div class="header">
             <h1>📦 日常品在庫管理</h1>
             <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
-                v3.1.1 - 2025.05.31 - UI改善版（復元）
+                v3.1.3 - 2025.06.01 - 一覧表示対応版
             </div>
             <div id="inventorySummary" style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.9);">
                 <span id="totalItems">商品数: 0</span> | 
@@ -500,6 +675,12 @@
 
         <div class="controls">
             <input type="text" id="searchInput" class="search-box" placeholder="商品名、場所、直近購買先で検索...">
+            
+            <div class="view-toggle">
+                <button id="listViewBtn" class="active" onclick="switchView('list')">📋 一覧</button>
+                <button id="cardViewBtn" onclick="switchView('card')">🔲 カード</button>
+            </div>
+            
             <button class="btn btn-success" onclick="openBarcodeScanner()">📱 バーコード入出庫</button>
             <button class="btn btn-primary" onclick="openAddForm()">➕ 商品を追加</button>
             <button class="btn btn-secondary" onclick="openHistoryModal()">📊 入出庫履歴</button>
@@ -583,7 +764,22 @@
             </div>
         </div>
 
-        <div id="itemsGrid" class="items-grid">
+        <!-- 一覧表示 -->
+        <div id="itemsTableView" class="items-table-container">
+            <table class="items-table">
+                <thead>
+                    <tr id="tableHeader">
+                        <!-- 動的に生成される -->
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- 動的に生成される -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- カード表示 -->
+        <div id="itemsGrid" class="items-grid hidden">
             <!-- 商品カードがここに表示される -->
         </div>
 
@@ -599,8 +795,8 @@
         <div id="debugPanel" class="hidden" style="position: fixed; bottom: 60px; right: 10px; background: rgba(0,0,0,0.9); color: white; padding: 15px; border-radius: 8px; font-size: 11px; max-width: 300px; z-index: 998;">
             <div style="font-weight: bold; margin-bottom: 10px;">🔍 デバッグ情報</div>
             <div id="debugInfo">
-                <div>バージョン: v3.1.2</div>
-                <div>更新日時: 2025.05.31</div>
+                <div>バージョン: v3.1.3</div>
+                <div>更新日時: 2025.06.01</div>
                 <div>ブラウザ: <span id="browserInfo"></span></div>
                 <div>画面サイズ: <span id="screenInfo"></span></div>
                 <div>カメラ対応: <span id="cameraSupport"></span></div>
@@ -741,10 +937,20 @@
 
     <!-- 設定モーダル -->
     <div id="settingsModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
                 <h3 class="modal-title">⚙️ 設定管理</h3>
                 <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            
+            <!-- 表示設定セクション -->
+            <div class="display-settings">
+                <h4 style="margin-bottom: 15px; color: #374151;">📋 一覧表示設定</h4>
+                <div style="background: #f9fafb; border-radius: 8px; padding: 15px; margin-bottom: 30px;">
+                    <div id="displayColumnSettings">
+                        <!-- 動的に生成される -->
+                    </div>
+                </div>
             </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
@@ -801,6 +1007,7 @@
         let quaggaInitialized = false;
         let currentCamera = 'environment'; // 'environment' or 'user'
         let flashlightEnabled = false;
+        let currentView = 'list'; // 'list' or 'card'
         
         // バーコードデータを一時保存する変数
         let tempBarcodeData = null;
@@ -811,7 +1018,18 @@
         // 設定データを保存する変数
         let appSettings = {
             locations: [],
-            suppliers: []
+            suppliers: [],
+            displayColumns: {
+                name: { enabled: true, label: '商品名', order: 1 },
+                quantity: { enabled: true, label: '在庫数', order: 2 },
+                price: { enabled: true, label: '直近購入単価', order: 3 },
+                location: { enabled: false, label: '保管場所', order: 4 },
+                minStock: { enabled: false, label: '最低在庫数', order: 5 },
+                totalValue: { enabled: false, label: '在庫金額', order: 6 },
+                unitPrice: { enabled: false, label: '比較単価', order: 7 },
+                barcode: { enabled: false, label: 'バーコード', order: 8 },
+                lastUpdated: { enabled: false, label: '最終更新', order: 9 }
+            }
         };
 
         // 初期化
@@ -874,6 +1092,22 @@
                 toggleCustomInput('itemUnit', 'itemUnitCustom');
             });
         });
+
+        // 表示切り替え機能
+        function switchView(view) {
+            currentView = view;
+            
+            // ボタンの状態を更新
+            document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+            document.getElementById('cardViewBtn').classList.toggle('active', view === 'card');
+            
+            // 表示を切り替え
+            document.getElementById('itemsTableView').classList.toggle('hidden', view !== 'list');
+            document.getElementById('itemsGrid').classList.toggle('hidden', view !== 'card');
+            
+            // 再描画
+            renderItems();
+        }
 
         // カスタム入力の表示/非表示切り替え
         function toggleCustomInput(selectId, customInputId) {
@@ -987,7 +1221,16 @@
             try {
                 const savedSettings = localStorage.getItem('inventorySettings');
                 if (savedSettings) {
-                    appSettings = JSON.parse(savedSettings);
+                    const loaded = JSON.parse(savedSettings);
+                    // 新しい設定項目をマージ
+                    appSettings = {
+                        ...appSettings,
+                        ...loaded,
+                        displayColumns: {
+                            ...appSettings.displayColumns,
+                            ...(loaded.displayColumns || {})
+                        }
+                    };
                 } else {
                     loadDefaultSettings();
                 }
@@ -1016,7 +1259,18 @@
                 suppliers: [
                     'Amazon', '楽天', 'スーパー', 'ドラッグストア', 'コンビニ', 
                     'ホームセンター', '百貨店', 'ネットショップ'
-                ]
+                ],
+                displayColumns: {
+                    name: { enabled: true, label: '商品名', order: 1 },
+                    quantity: { enabled: true, label: '在庫数', order: 2 },
+                    price: { enabled: true, label: '直近購入単価', order: 3 },
+                    location: { enabled: false, label: '保管場所', order: 4 },
+                    minStock: { enabled: false, label: '最低在庫数', order: 5 },
+                    totalValue: { enabled: false, label: '在庫金額', order: 6 },
+                    unitPrice: { enabled: false, label: '比較単価', order: 7 },
+                    barcode: { enabled: false, label: 'バーコード', order: 8 },
+                    lastUpdated: { enabled: false, label: '最終更新', order: 9 }
+                }
             };
             saveAppSettings();
         }
@@ -1087,16 +1341,112 @@
                 (item.supplier && item.supplier.toLowerCase().includes(searchTerm))
             );
 
-            const container = document.getElementById('itemsGrid');
             const noItems = document.getElementById('noItems');
 
             if (filteredItems.length === 0) {
-                container.innerHTML = '';
+                if (currentView === 'list') {
+                    document.getElementById('tableBody').innerHTML = '';
+                } else {
+                    document.getElementById('itemsGrid').innerHTML = '';
+                }
                 noItems.classList.remove('hidden');
                 return;
             }
 
             noItems.classList.add('hidden');
+
+            if (currentView === 'list') {
+                renderItemsTable(filteredItems);
+            } else {
+                renderItemsCards(filteredItems);
+            }
+        }
+
+        // 一覧表示
+        function renderItemsTable(filteredItems) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            
+            // ヘッダー作成
+            const enabledColumns = Object.entries(appSettings.displayColumns)
+                .filter(([key, config]) => config.enabled)
+                .sort((a, b) => a[1].order - b[1].order);
+            
+            tableHeader.innerHTML = enabledColumns.map(([key, config]) => 
+                `<th>${config.label}</th>`
+            ).join('') + '<th>操作</th>';
+            
+            // データ行作成
+            tableBody.innerHTML = filteredItems.map(item => {
+                const isLowStock = !item.alertDisabled && item.quantity <= item.minStock;
+                const totalValue = (item.quantity * (item.price || 0)).toLocaleString();
+                
+                // 直近購買情報を取得
+                const recentPurchase = transactionHistory
+                    .filter(entry => entry.itemId === item.id && entry.operationType === 'in')
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                
+                const lastUpdated = recentPurchase ? 
+                    new Date(recentPurchase.timestamp).toLocaleDateString('ja-JP') : '未記録';
+                
+                const unitPriceFormatted = formatUnitPrice(item.price, item.volume, item.unit);
+                
+                let rowData = '';
+                
+                enabledColumns.forEach(([key, config]) => {
+                    switch(key) {
+                        case 'name':
+                            rowData += `<td><strong>${item.name}</strong></td>`;
+                            break;
+                        case 'quantity':
+                            rowData += `<td>
+                                <div class="quantity-controls-inline">
+                                    <button class="quantity-btn-small quantity-minus-small" onclick="updateQuantity(${item.id}, -1)" ${item.quantity <= 0 ? 'disabled' : ''}>−</button>
+                                    <span class="quantity-display-inline">${item.quantity}</span>
+                                    <button class="quantity-btn-small quantity-plus-small" onclick="updateQuantity(${item.id}, 1)">＋</button>
+                                    ${isLowStock ? '<span class="status-badge low-stock">不足</span>' : '<span class="status-badge normal">正常</span>'}
+                                </div>
+                            </td>`;
+                            break;
+                        case 'price':
+                            rowData += `<td>¥${(item.price || 0).toLocaleString()}</td>`;
+                            break;
+                        case 'location':
+                            rowData += `<td>${item.location || '未設定'}</td>`;
+                            break;
+                        case 'minStock':
+                            rowData += `<td>${item.minStock}${item.alertDisabled ? ' (無効)' : ''}</td>`;
+                            break;
+                        case 'totalValue':
+                            rowData += `<td><strong>¥${totalValue}</strong></td>`;
+                            break;
+                        case 'unitPrice':
+                            rowData += `<td>${unitPriceFormatted}</td>`;
+                            break;
+                        case 'barcode':
+                            rowData += `<td>${item.barcode || '-'}</td>`;
+                            break;
+                        case 'lastUpdated':
+                            rowData += `<td>${lastUpdated}</td>`;
+                            break;
+                    }
+                });
+                
+                rowData += `<td>
+                    <div class="action-buttons">
+                        <button class="btn-icon edit" onclick="editItem(${item.id})" title="編集">✏️</button>
+                        <button class="btn-icon delete" onclick="deleteItem(${item.id})" title="削除">🗑️</button>
+                    </div>
+                </td>`;
+                
+                return `<tr class="${isLowStock ? 'low-stock' : ''}">${rowData}</tr>`;
+            }).join('');
+        }
+
+        // カード表示（既存機能）
+        function renderItemsCards(filteredItems) {
+            const container = document.getElementById('itemsGrid');
+            
             container.innerHTML = filteredItems.map(item => {
                 const totalValue = (item.quantity * (item.price || 0)).toLocaleString();
                 
@@ -2142,7 +2492,7 @@
 
         function exportDebugLog() {
             const debugData = {
-                version: 'v3.1.2',
+                version: 'v3.1.3',
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 userAgent: navigator.userAgent,
@@ -2162,6 +2512,7 @@
                 historyCount: transactionHistory.length,
                 items: items,
                 history: transactionHistory,
+                settings: appSettings,
                 errors: [] // 今後エラーログを追加可能
             };
             
@@ -2187,8 +2538,10 @@
                     try {
                         localStorage.removeItem('householdInventory');
                         localStorage.removeItem('inventoryHistory');
+                        localStorage.removeItem('inventorySettings');
                         items = [];
                         transactionHistory = [];
+                        loadDefaultSettings();
                         renderItems();
                         updateLowStockAlert();
                         updateDebugInfo();
@@ -2336,8 +2689,50 @@
         
         // 設定画面の表示
         function renderSettings() {
+            renderDisplayColumnSettings();
             renderLocationsList();
             renderSuppliersList();
+        }
+        
+        // 表示カラム設定の表示
+        function renderDisplayColumnSettings() {
+            const container = document.getElementById('displayColumnSettings');
+            
+            // 順序でソート
+            const sortedColumns = Object.entries(appSettings.displayColumns)
+                .sort((a, b) => a[1].order - b[1].order);
+            
+            container.innerHTML = sortedColumns.map(([key, config]) => `
+                <div class="setting-item">
+                    <div>
+                        <div class="setting-label">${config.label}</div>
+                        <div class="setting-description">一覧表示で${config.label}を表示します</div>
+                    </div>
+                    <div class="toggle-switch ${config.enabled ? 'active' : ''}" onclick="toggleDisplayColumn('${key}')">
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 表示カラムの切り替え
+        function toggleDisplayColumn(columnKey) {
+            if (appSettings.displayColumns[columnKey]) {
+                appSettings.displayColumns[columnKey].enabled = !appSettings.displayColumns[columnKey].enabled;
+                
+                // 少なくとも1つのカラムは有効にしておく
+                const enabledCount = Object.values(appSettings.displayColumns).filter(col => col.enabled).length;
+                if (enabledCount === 0) {
+                    appSettings.displayColumns[columnKey].enabled = true;
+                    alert('⚠️ 最低でも1つのカラムは表示する必要があります');
+                }
+                
+                renderDisplayColumnSettings();
+                
+                // 現在一覧表示の場合は即座に反映
+                if (currentView === 'list') {
+                    renderItems();
+                }
+            }
         }
         
         // 保管場所リストの表示
